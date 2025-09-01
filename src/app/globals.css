@@ -1,0 +1,57 @@
+@import "tailwindcss";
+
+/* Reset & base styles */
+@layer base {
+  :root {
+    --primary-orange: #D2691E;
+    --secondary-orange: #FF8C42;
+    --dark-gray: #2C2C2C;
+    --light-gray: #F5F5F5;
+    --white: #FFFFFF;
+    --black: #000000;
+  }
+
+  * {
+    box-sizing: border-box;
+    padding: 0;
+    margin: 0;
+  }
+
+  html,
+  body {
+    max-width: 100vw;
+    overflow-x: hidden;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI',
+      'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans',
+      'Helvetica Neue', sans-serif;
+  }
+
+  body {
+    color: var(--black);
+    background: var(--white);
+  }
+
+  a {
+    text-decoration: none;
+    color: inherit; /* Nếu muốn link mặc định theo text cha */
+  }
+}
+
+/* Custom components */
+@layer components {
+  .btn-primary {
+    @apply bg-orange-600 hover:bg-orange-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors duration-200;
+  }
+
+  .btn-secondary {
+    @apply bg-gray-800 hover:bg-gray-900 text-white font-semibold py-2 px-4 rounded-lg transition-colors duration-200;
+  }
+
+  .card {
+    @apply bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden;
+  }
+
+  .input-field {
+    @apply w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent;
+  }
+}
