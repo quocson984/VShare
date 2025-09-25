@@ -23,6 +23,12 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  trailingSlash: true,
+  exportPathMap: function() {
+    return {
+      '/': { page: '/' }
+    }
+  }
 };
 
 export default nextConfig;
