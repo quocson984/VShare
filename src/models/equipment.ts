@@ -1,4 +1,5 @@
 import mongoose, { Document, Schema, InferSchemaType } from 'mongoose';
+import { LocationSchema } from './location';
 
 const EquipmentSchema = new Schema({
     title: { 
@@ -25,6 +26,12 @@ const EquipmentSchema = new Schema({
         enum: ['camera', 'lens', 'lighting', 'audio', 'accessory'], 
         required: [true, 'Category is required']
     },
+    quantity: { 
+        type: Number,
+        required: [true, 'Quantity is required'],
+        min: [1, 'Quantity must be at least 1']
+    },
+    location: LocationSchema,
     specs: [{
         name: { type: String, required: true },
         value: { type: String, required: true }

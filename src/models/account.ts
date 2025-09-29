@@ -1,4 +1,19 @@
 import mongoose, { Document, Schema, InferSchemaType } from 'mongoose';
+import { LocationSchema } from './location';
+
+const VerificationSchema = new mongoose.Schema({
+  status: {
+    type: String,
+    enum: ["pending", "verified", "rejected"],
+    default: "pending"
+  },
+  frontCccd: { type: String },
+  backCccd: { type: String },
+  selfie: { type: String },
+  notes: { type: String }
+}
+, { timestamps: true });
+
 
 const AccountSchema = new Schema({
     email: { 
@@ -16,10 +31,10 @@ const AccountSchema = new Schema({
         select: false
     },
     avatar: String,
-    nickname: { 
+    fullname: { 
         type: String,
         trim: true,
-        maxlength: [50, 'Nickname cannot exceed 50 characters']
+        maxlength: [50, 'Full name cannot exceed 50 characters']
     },
     phone: { 
         type: String,
@@ -29,6 +44,7 @@ const AccountSchema = new Schema({
         type: String,
         maxlength: [200, 'Address cannot exceed 200 characters']
     },
+    location: LocationSchema,
     identityImages: [String],
     identityNumber: { 
         type: String, 
@@ -57,9 +73,11 @@ const AccountSchema = new Schema({
     },
     credit: { 
         type: String, 
-        enum: ['trusted', 'restricted', 'banned'], 
+        enum: ['trusted', 'restricted'], 
         default: 'trusted' 
     },
+
+    verifications: [VerificationSchema],
     status: { 
         type: String, 
         enum: ['active', 'inactive', 'banned'], 

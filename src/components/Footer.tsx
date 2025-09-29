@@ -72,7 +72,7 @@ export default function Footer() {
             <div className="space-y-3">
               <div className="flex items-center space-x-3">
                 <MapPin className="h-5 w-5 text-orange-600" />
-                <span className="text-gray-300">123 Đường ABC, Quận 1, TP.HCM</span>
+                <span className="text-gray-300">1 Đường Alexandre de Rhodes, Quận 1, TP.HCM</span>
               </div>
               <div className="flex items-center space-x-3">
                 <Phone className="h-5 w-5 text-orange-600" />
@@ -88,7 +88,7 @@ export default function Footer() {
 
         <div className="border-t border-gray-800 mt-8 pt-8 text-center">
           <p className="text-gray-400">
-            © 2024 VShare. Tất cả quyền được bảo lưu.
+            © 2025 VShare. Tất cả quyền được bảo lưu.
           </p>
         </div>
       </div>

@@ -6,6 +6,11 @@ const BookingSchema = new Schema({
         ref: 'Equipment',
         required: [true, 'Equipment ID is required']
     },
+    quantity: { 
+        type: Number,
+        required: [true, 'Quantity is required'],
+        min: [1, 'Quantity must be at least 1']
+    },
     renterId: { 
         type: mongoose.Schema.Types.ObjectId, 
         ref: 'Account',
@@ -47,11 +52,6 @@ const BookingSchema = new Schema({
         default: 0,
         min: [0, 'Insurance fee cannot be negative']
     },
-    discount: { 
-        type: Number, 
-        default: 0,
-        min: [0, 'Discount cannot be negative']
-    },
     totalPrice: { 
         type: Number, 
         required: [true, 'Total price is required'],
@@ -59,13 +59,8 @@ const BookingSchema = new Schema({
     },
     status: { 
         type: String, 
-        enum: ['pending', 'confirmed', 'canceled', 'completed'], 
+        enum: ['pending', 'confirmed', 'canceled', 'reviewing','completed', 'failed'], 
         default: 'pending' 
-    },
-    paymentStatus: {
-        type: String,
-        enum: ['pending', 'paid', 'partially_paid', 'refunded'],
-        default: 'pending'
     },
     notes: String
 }, {
