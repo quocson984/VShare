@@ -9,6 +9,16 @@ const LocationSchema = new Schema({
     coordinates: {
         type: [Number], // [longitude, latitude]
         required: true
+    },
+    address: {
+        type: String,
+        required: true
+    },
+    district: String,
+    city: String,
+    country: {
+        type: String,
+        default: 'Vietnam'
     }
 }, { _id: false });
 

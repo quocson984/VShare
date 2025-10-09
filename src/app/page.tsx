@@ -104,7 +104,7 @@ export default function Home() {
                 An toàn, tiện lợi và đáng tin cậy.
               </p>
               <div className="flex flex-col sm:flex-row gap-4">
-                <Link href="/products" className="btn-secondary text-center">
+                <Link href="/equipments" className="btn-secondary text-center">
                   Khám phá thiết bị
                 </Link>
                 <Link href="/register" className="bg-white text-orange-600 hover:bg-gray-100 font-semibold py-3 px-6 rounded-lg transition-colors duration-200 text-center">
@@ -137,7 +137,7 @@ export default function Home() {
             {categories.map((category) => (
               <Link
                 key={category.name}
-                href={`/products?category=${category.name}`}
+                href={`/equipments?category=${category.name}`}
                 className="card p-6 text-center hover:shadow-lg transition-shadow duration-300 group"
               >
                 <div className={`w-16 h-16 ${category.color} rounded-full flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform duration-300`}>
@@ -163,7 +163,7 @@ export default function Home() {
                 Những thiết bị được thuê nhiều nhất
               </p>
             </div>
-            <Link href="/products" className="btn-primary">
+            <Link href="/equipments" className="btn-primary">
               Xem tất cả
             </Link>
           </div>
@@ -215,7 +215,7 @@ export default function Home() {
             <Link href="/register" className="btn-secondary">
               Đăng ký ngay
             </Link>
-            <Link href="/products" className="bg-white text-orange-600 hover:bg-gray-100 font-semibold py-3 px-6 rounded-lg transition-colors duration-200">
+            <Link href="/equipments" className="bg-white text-orange-600 hover:bg-gray-100 font-semibold py-3 px-6 rounded-lg transition-colors duration-200">
               Khám phá thiết bị
             </Link>
           </div>
