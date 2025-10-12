@@ -1,16 +1,7 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
-import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
-
-// Fix for default markers in leaflet
-delete (L.Icon.Default.prototype as any)._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
-  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
-  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
-});
+import { useEffect, useRef, useState } from 'react';
+import dynamic from 'next/dynamic';
 
 interface MapProps {
   center: [number, number];
@@ -26,43 +17,102 @@ interface MapProps {
   className?: string;
 }
 
-export default function Map({ 
+// Leaflet Map Component (client-side only)
+function LeafletMap({ 
   center, 
-  zoom = 13, 
+  zoom = 12, 
   markers = [], 
   onLocationSelect,
   height = '400px',
   className = '' 
 }: MapProps) {
   const mapRef = useRef<HTMLDivElement>(null);
-  const mapInstance = useRef<L.Map | null>(null);
-  const markersRef = useRef<L.Marker[]>([]);
+  const mapInstance = useRef<any>(null);
+  const markersRef = useRef<any[]>([]);
+  const [isClient, setIsClient] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (!mapRef.current || mapInstance.current) return;
+    setIsClient(true);
+  }, []);
 
-    // Initialize map
-    mapInstance.current = L.map(mapRef.current).setView(center, zoom);
+  // Initialize map
+  useEffect(() => {
+    if (!isClient || !mapRef.current || mapInstance.current) return;
 
-    // Add OpenStreetMap tiles
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-    }).addTo(mapInstance.current);
+    const initializeMap = async () => {
+      try {
+        const L = await import('leaflet');
+        
+        // Fix for default markers in leaflet
+        delete (L.Icon.Default.prototype as any)._getIconUrl;
+        L.Icon.Default.mergeOptions({
+          iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
+          iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
+          shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+        });
 
-    // Add click handler for location selection
-    if (onLocationSelect) {
-      mapInstance.current.on('click', (e) => {
-        onLocationSelect(e.latlng.lat, e.latlng.lng);
-      });
-    }
+        // Validate center coordinates
+        const validCenter: [number, number] = (
+          center && 
+          Array.isArray(center) && 
+          typeof center[0] === 'number' && 
+          typeof center[1] === 'number' &&
+          !isNaN(center[0]) && 
+          !isNaN(center[1])
+        ) ? center : [10.8231, 106.6297]; // Ho Chi Minh City default
 
-    // Vietnam bounds for constraining view
-    const vietnamBounds = L.latLngBounds(
-      L.latLng(8.560, 102.144), // Southwest
-      L.latLng(23.393395, 109.464) // Northeast
-    );
-    
-    mapInstance.current.setMaxBounds(vietnamBounds);
+        // Initialize map with proper options
+        mapInstance.current = L.map(mapRef.current!, {
+          center: validCenter,
+          zoom: zoom,
+          zoomControl: true,
+          attributionControl: true,
+          scrollWheelZoom: true,
+          doubleClickZoom: true,
+          touchZoom: true,
+          boxZoom: true,
+          keyboard: true,
+          dragging: true
+        });
+
+        // Add OpenStreetMap tiles
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+          maxZoom: 19,
+          minZoom: 3
+        }).addTo(mapInstance.current);
+
+        // Set Vietnam bounds for better UX
+        const vietnamBounds = L.latLngBounds(
+          L.latLng(8.560, 102.144), // Southwest
+          L.latLng(23.393395, 109.464) // Northeast
+        );
+        mapInstance.current.setMaxBounds(vietnamBounds);
+
+        // Force map to calculate size properly
+        setTimeout(() => {
+          if (mapInstance.current) {
+            mapInstance.current.invalidateSize();
+            mapInstance.current.setView(validCenter, zoom);
+          }
+          setIsLoading(false);
+        }, 100);
+
+        // Additional invalidation for stubborn sizing issues
+        setTimeout(() => {
+          if (mapInstance.current) {
+            mapInstance.current.invalidateSize();
+          }
+        }, 500);
+
+      } catch (error) {
+        console.error('Failed to initialize map:', error);
+        setIsLoading(false);
+      }
+    };
+
+    initializeMap();
 
     return () => {
       if (mapInstance.current) {
@@ -70,44 +120,167 @@ export default function Map({
         mapInstance.current = null;
       }
     };
-  }, []);
+  }, [isClient]);
 
+  // Handle center and zoom updates
   useEffect(() => {
-    if (!mapInstance.current) return;
+    if (!mapInstance.current || !isClient) return;
 
-    // Update map center
-    mapInstance.current.setView(center, zoom);
-  }, [center, zoom]);
+    const validCenter: [number, number] = (
+      center && 
+      Array.isArray(center) && 
+      typeof center[0] === 'number' && 
+      typeof center[1] === 'number' &&
+      !isNaN(center[0]) && 
+      !isNaN(center[1])
+    ) ? center : [10.8231, 106.6297];
 
+    mapInstance.current.setView(validCenter, zoom);
+  }, [center, zoom, isClient]);
+
+  // Handle click events
   useEffect(() => {
-    if (!mapInstance.current) return;
+    if (!mapInstance.current || !onLocationSelect || !isClient) return;
 
-    // Clear existing markers
-    markersRef.current.forEach(marker => {
-      mapInstance.current?.removeLayer(marker);
-    });
-    markersRef.current = [];
+    const clickHandler = (e: any) => {
+      onLocationSelect(e.latlng.lat, e.latlng.lng);
+    };
 
-    // Add new markers
-    markers.forEach(markerData => {
-      const marker = L.marker(markerData.position)
-        .addTo(mapInstance.current!)
-        .bindPopup(`
-          <div class="p-2">
-            <h3 class="font-semibold text-sm">${markerData.title}</h3>
-            ${markerData.description ? `<p class="text-xs text-gray-600 mt-1">${markerData.description}</p>` : ''}
-          </div>
-        `);
-      
-      markersRef.current.push(marker);
-    });
-  }, [markers]);
+    mapInstance.current.on('click', clickHandler);
+
+    return () => {
+      if (mapInstance.current) {
+        mapInstance.current.off('click', clickHandler);
+      }
+    };
+  }, [onLocationSelect, isClient]);
+
+  // Handle markers
+  useEffect(() => {
+    if (!mapInstance.current || !isClient) return;
+
+    const updateMarkers = async () => {
+      try {
+        const L = await import('leaflet');
+
+        // Clear existing markers
+        markersRef.current.forEach(marker => {
+          if (mapInstance.current) {
+            mapInstance.current.removeLayer(marker);
+          }
+        });
+        markersRef.current = [];
+
+        // Add new markers
+        markers.forEach(markerData => {
+          if (
+            markerData.position && 
+            Array.isArray(markerData.position) &&
+            typeof markerData.position[0] === 'number' && 
+            typeof markerData.position[1] === 'number' &&
+            !isNaN(markerData.position[0]) && 
+            !isNaN(markerData.position[1])
+          ) {
+            const marker = L.marker(markerData.position)
+              .addTo(mapInstance.current)
+              .bindPopup(`
+                <div style="padding: 8px; min-width: 200px;">
+                  <h3 style="margin: 0 0 4px 0; font-weight: 600; font-size: 14px;">${markerData.title}</h3>
+                  ${markerData.description ? `<p style="margin: 0; font-size: 12px; color: #666;">${markerData.description}</p>` : ''}
+                </div>
+              `, {
+                maxWidth: 300,
+                className: 'custom-popup'
+              });
+            
+            markersRef.current.push(marker);
+          }
+        });
+      } catch (error) {
+        console.error('Failed to update markers:', error);
+      }
+    };
+
+    updateMarkers();
+  }, [markers, isClient]);
+
+  // Handle container resize
+  useEffect(() => {
+    if (!mapInstance.current || !isClient) return;
+
+    const handleResize = () => {
+      setTimeout(() => {
+        if (mapInstance.current) {
+          mapInstance.current.invalidateSize();
+        }
+      }, 100);
+    };
+
+    const currentRef = mapRef.current;
+    let resizeObserver: ResizeObserver | null = null;
+    
+    if (typeof ResizeObserver !== 'undefined' && currentRef) {
+      resizeObserver = new ResizeObserver(handleResize);
+      resizeObserver.observe(currentRef);
+    }
+
+    window.addEventListener('resize', handleResize);
+
+    return () => {
+      if (resizeObserver && currentRef) {
+        resizeObserver.unobserve(currentRef);
+      }
+      window.removeEventListener('resize', handleResize);
+    };
+  }, [isClient]);
+
+  if (!isClient) {
+    return (
+      <div 
+        style={{ height }} 
+        className={`w-full rounded-lg border border-gray-200 bg-gray-100 flex items-center justify-center ${className}`}
+      >
+        <div className="flex items-center space-x-2 text-gray-500">
+          <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-gray-500"></div>
+          <span>Đang tải bản đồ...</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div 
-      ref={mapRef} 
-      style={{ height }} 
-      className={`w-full rounded-lg border border-gray-200 ${className}`}
-    />
+    <div className={`relative ${className}`} style={{ height }}>
+      {/* Loading overlay */}
+      {isLoading && (
+        <div className="absolute inset-0 bg-gray-100 flex items-center justify-center z-10 rounded-lg">
+          <div className="flex items-center space-x-2 text-gray-500">
+            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-gray-500"></div>
+            <span>Đang tải bản đồ...</span>
+          </div>
+        </div>
+      )}
+      
+      {/* Map container */}
+      <div 
+        ref={mapRef} 
+        style={{ height: '100%', width: '100%' }}
+        className="rounded-lg border border-gray-200 overflow-hidden"
+      />
+    </div>
   );
 }
+
+// Export the component with no SSR
+const Map = dynamic(() => Promise.resolve(LeafletMap), {
+  ssr: false,
+  loading: () => (
+    <div className="w-full h-96 rounded-lg border border-gray-200 bg-gray-100 flex items-center justify-center">
+      <div className="flex items-center space-x-2 text-gray-500">
+        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-gray-500"></div>
+        <span>Đang tải bản đồ...</span>
+      </div>
+    </div>
+  )
+});
+
+export default Map;

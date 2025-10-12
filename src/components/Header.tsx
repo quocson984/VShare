@@ -4,55 +4,14 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Camera, Menu, X, ShoppingCart, User, Search, MapPin } from 'lucide-react';
+import LocationAutocomplete from './LocationAutocomplete';
 
 export default function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [location, setLocation] = useState('');
-  const [showLocationDropdown, setShowLocationDropdown] = useState(false);
   const [showEquipmentDropdown, setShowEquipmentDropdown] = useState(false);
   const router = useRouter();
-
-  // Vietnamese cities/districts for autocomplete
-  const [locationSuggestions, setLocationSuggestions] = useState<string[]>([
-    'Quận 1, TP.HCM',
-    'Quận 2, TP.HCM', 
-    'Quận 3, TP.HCM',
-    'Quận 7, TP.HCM',
-    'Quận Bình Thạnh, TP.HCM',
-    'Quận Phú Nhuận, TP.HCM',
-    'Quận Tân Bình, TP.HCM',
-    'Ba Đình, Hà Nội',
-    'Hoàn Kiếm, Hà Nội',
-    'Cầu Giấy, Hà Nội',
-    'Đống Đa, Hà Nội',
-    'Hải Châu, Đà Nẵng',
-    'Thanh Khê, Đà Nẵng'
-  ]);
-
-  // Fetch location suggestions from API
-  const fetchLocationSuggestions = async (query: string) => {
-    if (query.length < 2) {
-      setLocationSuggestions([
-        'Quận 1, TP.HCM', 'Quận 2, TP.HCM', 'Quận 3, TP.HCM',
-        'Ba Đình, Hà Nội', 'Hoàn Kiếm, Hà Nội', 'Hải Châu, Đà Nẵng'
-      ]);
-      return;
-    }
-
-    try {
-      const response = await fetch(`/api/location?q=${encodeURIComponent(query)}`);
-      if (response.ok) {
-        const data = await response.json();
-        if (data.success) {
-          const suggestions = data.data.map((item: any) => item.address);
-          setLocationSuggestions(suggestions);
-        }
-      }
-    } catch (error) {
-      console.error('Error fetching location suggestions:', error);
-    }
-  };
 
   // Equipment suggestions for autocomplete  
   const equipmentSuggestions = [
@@ -73,7 +32,7 @@ export default function Header() {
     
     const params = new URLSearchParams();
     if (searchQuery.trim()) {
-      params.set('search', searchQuery.trim());
+      params.set('q', searchQuery.trim()); // Changed from 'search' to 'q' to match API
     }
     if (location.trim()) {
       params.set('location', location.trim());
@@ -82,12 +41,12 @@ export default function Header() {
     const queryString = params.toString();
     const url = queryString ? `/equipments?${queryString}` : '/equipments';
     
+    console.log('Searching with params:', { searchQuery, location, url }); // Debug log
     router.push(url);
+    
+    // Close mobile menu if open
+    setIsMenuOpen(false);
   };
-
-  const filteredLocations = locationSuggestions.filter(loc =>
-    loc.toLowerCase().includes(location.toLowerCase())
-  );
 
   const filteredEquipment = equipmentSuggestions.filter(eq =>
     eq.toLowerCase().includes(searchQuery.toLowerCase())
@@ -104,91 +63,98 @@ export default function Header() {
           </Link>
 
           {/* Search Bar - Desktop */}
-          <div className="hidden md:flex flex-1 max-w-2xl mx-8">
-            <form onSubmit={handleSearch} className="flex w-full bg-gray-50 rounded-lg border border-gray-200">
-              {/* Location Input */}
-              <div className="relative flex-1">
-                <div className="flex items-center px-3 py-2 border-r border-gray-200">
-                  <MapPin className="h-4 w-4 text-gray-400 mr-2" />
-                  <input
-                    type="text"
-                    placeholder="Chọn địa điểm"
-                    value={location}
-                    onChange={(e) => {
-                      setLocation(e.target.value);
-                      setShowLocationDropdown(true);
-                      fetchLocationSuggestions(e.target.value);
-                    }}
-                    onFocus={() => setShowLocationDropdown(true)}
-                    onBlur={() => setTimeout(() => setShowLocationDropdown(false), 200)}
-                    className="bg-transparent border-none outline-none text-sm flex-1 placeholder-gray-500"
-                  />
-                </div>
-                
-                {/* Location Dropdown */}
-                {showLocationDropdown && location && filteredLocations.length > 0 && (
-                  <div className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-md shadow-lg z-50 max-h-60 overflow-y-auto">
-                    {filteredLocations.slice(0, 8).map((loc, index) => (
-                      <button
-                        key={index}
-                        type="button"
-                        onClick={() => {
-                          setLocation(loc);
-                          setShowLocationDropdown(false);
-                        }}
-                        className="w-full text-left px-3 py-2 hover:bg-gray-50 text-sm"
-                      >
-                        {loc}
-                      </button>
-                    ))}
+          <div className="hidden md:flex flex-1 max-w-4xl mx-8">
+            <form onSubmit={handleSearch} className="flex w-full">
+              {/* Main Search Bar */}
+              <div className="flex bg-gray-50 rounded-lg border border-gray-200 flex-1">
+                {/* Location Input */}
+                <div className="relative flex-1">
+                  <div className="flex items-center border-r border-gray-200">
+                    <MapPin className="h-4 w-4 text-gray-400 ml-3 mr-2" />
+                    <LocationAutocomplete
+                      value={location}
+                      onChange={setLocation}
+                      onLocationSelect={(selectedLocation) => {
+                        setLocation(selectedLocation.address);
+                        console.log('Selected location:', selectedLocation);
+                      }}
+                      placeholder="Chọn địa điểm"
+                      className="bg-transparent border-none outline-none text-sm flex-1 placeholder-gray-500 px-0 py-2"
+                    />
                   </div>
-                )}
+                </div>
+
+                {/* Equipment Search Input */}
+                <div className="relative flex-1">
+                  <div className="flex items-center px-3 py-2">
+                    <input
+                      type="text"
+                      placeholder="Nhập tên thiết bị..."
+                      value={searchQuery}
+                      onChange={(e) => {
+                        setSearchQuery(e.target.value);
+                        setShowEquipmentDropdown(true);
+                      }}
+                      onFocus={() => setShowEquipmentDropdown(true)}
+                      onBlur={() => setTimeout(() => setShowEquipmentDropdown(false), 200)}
+                      className="bg-transparent border-none outline-none text-sm flex-1 placeholder-gray-500"
+                    />
+                  </div>
+                  
+                  {/* Equipment Dropdown */}
+                  {showEquipmentDropdown && searchQuery && filteredEquipment.length > 0 && (
+                    <div className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-md shadow-lg z-50 max-h-60 overflow-y-auto">
+                      {filteredEquipment.slice(0, 6).map((equipment, index) => (
+                        <button
+                          key={index}
+                          type="button"
+                          onClick={() => {
+                            setSearchQuery(equipment);
+                            setShowEquipmentDropdown(false);
+                          }}
+                          className="w-full text-left px-3 py-2 hover:bg-gray-50 text-sm"
+                        >
+                          {equipment}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Search Button */}
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-orange-600 text-white rounded-r-lg hover:bg-orange-700 transition-colors"
+                >
+                  <Search className="h-4 w-4" />
+                </button>
               </div>
 
-              {/* Equipment Search Input */}
-              <div className="relative flex-1">
-                <div className="flex items-center px-3 py-2">
-                  <input
-                    type="text"
-                    placeholder="Nhập tên thiết bị..."
-                    value={searchQuery}
-                    onChange={(e) => {
-                      setSearchQuery(e.target.value);
-                      setShowEquipmentDropdown(true);
-                    }}
-                    onFocus={() => setShowEquipmentDropdown(true)}
-                    onBlur={() => setTimeout(() => setShowEquipmentDropdown(false), 200)}
-                    className="bg-transparent border-none outline-none text-sm flex-1 placeholder-gray-500"
-                  />
+              {/* Filters - Like Airbnb */}
+              <div className="flex items-center ml-4 space-x-3">
+                {/* Price Range Filter */}
+                <div className="relative">
+                  <select className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white hover:border-gray-400 focus:border-orange-500 focus:ring-1 focus:ring-orange-500">
+                    <option value="">Khoảng giá</option>
+                    <option value="0-200000">Dưới 200k</option>
+                    <option value="200000-500000">200k - 500k</option>
+                    <option value="500000-1000000">500k - 1tr</option>
+                    <option value="1000000-2000000">1tr - 2tr</option>
+                    <option value="2000000+">Trên 2tr</option>
+                  </select>
                 </div>
-                
-                {/* Equipment Dropdown */}
-                {showEquipmentDropdown && searchQuery && filteredEquipment.length > 0 && (
-                  <div className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-md shadow-lg z-50 max-h-60 overflow-y-auto">
-                    {filteredEquipment.slice(0, 6).map((equipment, index) => (
-                      <button
-                        key={index}
-                        type="button"
-                        onClick={() => {
-                          setSearchQuery(equipment);
-                          setShowEquipmentDropdown(false);
-                        }}
-                        className="w-full text-left px-3 py-2 hover:bg-gray-50 text-sm"
-                      >
-                        {equipment}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
 
-              {/* Search Button */}
-              <button
-                type="submit"
-                className="px-4 py-2 bg-orange-600 text-white rounded-r-lg hover:bg-orange-700 transition-colors"
-              >
-                <Search className="h-4 w-4" />
-              </button>
+                {/* Rating Filter */}
+                <div className="relative">
+                  <select className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white hover:border-gray-400 focus:border-orange-500 focus:ring-1 focus:ring-orange-500">
+                    <option value="">Đánh giá</option>
+                    <option value="4.5+">4.5+ ⭐</option>
+                    <option value="4.0+">4.0+ ⭐</option>
+                    <option value="3.5+">3.5+ ⭐</option>
+                    <option value="3.0+">3.0+ ⭐</option>
+                  </select>
+                </div>
+              </div>
             </form>
           </div>
 

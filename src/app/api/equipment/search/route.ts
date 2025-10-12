@@ -2,6 +2,51 @@ import { NextRequest, NextResponse } from 'next/server';
 import { connectMongoDB } from '@/lib/mongodb';
 import { EquipmentModel } from '@/models/equipment';
 
+interface PopulatedOwner {
+  personalInfo?: {
+    firstName?: string;
+    lastName?: string;
+  };
+  verification?: {
+    verificationLevel?: string;
+  };
+}
+
+interface LeanEquipment {
+  _id: string;
+  title: string;
+  brand?: string;
+  model?: string;
+  category: string;
+  description?: string;
+  images?: string[];
+  pricePerDay: number;
+  pricePerWeek?: number;
+  pricePerMonth?: number;
+  location?: {
+    coordinates?: [number, number];
+    address?: string;
+  };
+  ownerId?: PopulatedOwner;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+interface SearchFilter {
+  status?: string;
+  $or?: Array<Record<string, { $regex: string; $options: string }>>;
+  $and?: Array<{ $or: Array<Record<string, { $regex: string; $options: string }>> }>;
+  'location.address'?: { $regex: string; $options: string };
+  'location.coordinates'?: {
+    $geoWithin?: {
+      $centerSphere: [[number, number], number];
+    };
+  };
+  category?: string;
+  brand?: { $regex: string; $options: string };
+  pricePerDay?: { $gte: number; $lte: number };
+}
+
 export async function GET(request: NextRequest) {
   try {
     await connectMongoDB();
@@ -9,6 +54,9 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const query = searchParams.get('q') || '';
     const location = searchParams.get('location') || '';
+    const lat = parseFloat(searchParams.get('lat') || '0');
+    const lng = parseFloat(searchParams.get('lng') || '0');
+    const radius = parseFloat(searchParams.get('radius') || '0'); // in kilometers
     const category = searchParams.get('category') || '';
     const brand = searchParams.get('brand') || '';
     const minPrice = parseInt(searchParams.get('minPrice') || '0');
@@ -19,7 +67,7 @@ export async function GET(request: NextRequest) {
     const sortOrder = searchParams.get('sortOrder') || 'desc';
 
     // Build search filter
-    const filter: Record<string, any> = {
+    const filter: SearchFilter = {
       status: 'available'
     };
 
@@ -33,10 +81,68 @@ export async function GET(request: NextRequest) {
       ];
     }
 
-    // Location search (if coordinates are provided)
+    // Location search - improved for better matching
     if (location) {
-      // For text-based location search
-      filter['location.address'] = { $regex: location, $options: 'i' };
+      // Try multiple location fields for better matching
+      filter.$or = filter.$or || [];
+      const locationFilter = [
+        { 'location.address': { $regex: location, $options: 'i' } },
+        { 'location.district': { $regex: location, $options: 'i' } },
+        { 'location.city': { $regex: location, $options: 'i' } }
+      ];
+      
+      // If we already have $or from text search, combine them
+      if (filter.$or.length > 0) {
+        filter.$and = [
+          { $or: filter.$or },
+          { $or: locationFilter }
+        ];
+        delete filter.$or;
+      } else {
+        filter.$or = locationFilter;
+      }
+    }
+
+    // Coordinate-based search (geospatial search) - Takes priority over text location search
+    if (lat && lng && radius && lat !== 0 && lng !== 0 && radius > 0) {
+      console.log(`Performing coordinate search: lat=${lat}, lng=${lng}, radius=${radius}km`);
+      
+      // Start fresh for coordinate search
+      const coordFilter: SearchFilter = {
+        status: 'available'
+      };
+      
+      // Keep text search if exists
+      if (query) {
+        coordFilter.$or = [
+          { title: { $regex: query, $options: 'i' } },
+          { brand: { $regex: query, $options: 'i' } },
+          { model: { $regex: query, $options: 'i' } },
+          { description: { $regex: query, $options: 'i' } }
+        ];
+      }
+      
+      // Add geospatial search - ensure coordinates exist and are valid
+      // MongoDB expects [longitude, latitude] format
+      const radiusInRadians = radius / 6378.1; // Earth radius in km
+      
+      coordFilter['location.coordinates'] = {
+        $geoWithin: {
+          $centerSphere: [[lng, lat], radiusInRadians]
+        }
+      };
+      
+      // Also add a fallback condition for equipment without coordinates but matching location text
+      if (location) {
+        coordFilter.$or = coordFilter.$or || [];
+        coordFilter.$or.push(
+          { 'location.address': { $regex: location, $options: 'i' } },
+          { 'location.district': { $regex: location, $options: 'i' } },
+          { 'location.city': { $regex: location, $options: 'i' } }
+        );
+      }
+      
+      Object.assign(filter, coordFilter);
     }
 
     // Category filter
@@ -62,6 +168,9 @@ export async function GET(request: NextRequest) {
     // Execute query with pagination
     const skip = (page - 1) * limit;
     
+    console.log('Final search filter:', JSON.stringify(filter, null, 2));
+    console.log('Sort object:', sortObj);
+    
     const [equipment, total] = await Promise.all([
       EquipmentModel
         .find(filter)
@@ -73,8 +182,10 @@ export async function GET(request: NextRequest) {
       EquipmentModel.countDocuments(filter)
     ]);
 
+    console.log(`Found ${equipment.length} equipment items out of ${total} total`);
+
     // Transform data for frontend
-    const transformedEquipment = equipment.map((item) => ({
+    const transformedEquipment = (equipment as unknown as LeanEquipment[]).map((item) => ({
       id: item._id.toString(),
       title: item.title,
       brand: item.brand,

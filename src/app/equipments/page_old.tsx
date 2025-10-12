@@ -35,11 +35,7 @@ function EquipmentsPage() {
   const [mapCenter, setMapCenter] = useState<[number, number]>([10.8231, 106.6297]); // Ho Chi Minh City
   const [hoveredEquipment, setHoveredEquipment] = useState<string | null>(null);
   const [showMapOnMobile, setShowMapOnMobile] = useState(false);
-  const [searchedLocation, setSearchedLocation] = useState<{
-    lat: number;
-    lng: number;
-    address: string;
-  } | null>(null);
+  const [searchedLocation, setSearchedLocation] = useState<{lat: number, lng: number, address: string} | null>(null);
 
   // Get search queries from URL params
   const searchQuery = searchParams.get('q') || '';
@@ -107,18 +103,18 @@ function EquipmentsPage() {
         // Transform API data to match Equipment interface
         const equipmentArray = data.data?.equipment || [];
         console.log('Equipment Array:', equipmentArray); // Debug log
-        const transformedData = equipmentArray.map((item: Record<string, any>) => ({
+        const transformedData = equipmentArray.map((item: Record<string, unknown>) => ({
           id: item._id || item.id || Math.random().toString(),
           name: item.title || item.name || 'Không có tên',
           price: item.pricePerDay || item.price || 0,
           category: item.category || 'other',
           rating: item.rating || 4.5,
           reviewCount: item.reviewCount || 0,
-          image: (Array.isArray(item.images) && item.images.length > 0) ? item.images[0] : 
+          image: (item.images && item.images.length > 0) ? item.images[0] : 
                  item.image || 'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?w=400&h=400&fit=crop',
           location: item.location?.address || item.location || 'Chưa cập nhật',
           available: item.availability === 'available' || item.available !== false,
-          coordinates: (item.location?.coordinates && Array.isArray(item.location.coordinates)) ? {
+          coordinates: item.location?.coordinates ? {
             lat: item.location.coordinates[1] || item.location.coordinates.lat,
             lng: item.location.coordinates[0] || item.location.coordinates.lng
           } : undefined
@@ -245,123 +241,184 @@ function EquipmentsPage() {
     <div className="min-h-screen bg-white">
       <Header />
       
-
-      {/* Main Content - Airbnb Style Layout: List | Map */}
-      <div className="flex h-[90vh]">
-        
-        {/* Left Panel - Equipment List with its own scrollbar */}
-        <div className="w-full lg:w-1/2 overflow-y-auto bg-white">
-          <div className="inline-flex items-center">
+      {/* Hero Section with Search Results Count */}
+      <div className="bg-white border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between">
+            <div className="flex-1 min-w-0">
+              <h1 className="text-xl font-semibold text-gray-900">
+                {searchQuery || locationQuery ? 'Kết quả tìm kiếm' : 'Tất cả thiết bị'}
+              </h1>
+              {(searchQuery || locationQuery) && (
+                <p className="mt-1 text-sm text-gray-600">
+                  {searchQuery && `"${searchQuery}"`}
+                  {searchQuery && locationQuery && ' tại '}
+                  {locationQuery && `"${locationQuery}"`}
+                </p>
+              )}
+              <div className="mt-2 text-sm text-gray-500 flex items-center justify-between">
+                <span className="inline-flex items-center">
                   <Search className="h-4 w-4 mr-1" />
                   {equipment.length} thiết bị được tìm thấy
-                </div>
-          <div className="p-4 lg:p-6">
+                </span>
+                {/* Mobile Map Toggle Button */}
+                <button
+                  onClick={() => setShowMapOnMobile(!showMapOnMobile)}
+                  className="lg:hidden inline-flex items-center px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+                >
+                  <MapPin className="h-4 w-4 mr-2" />
+                  {showMapOnMobile ? 'Ẩn bản đồ' : 'Hiện bản đồ'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+          <div className="flex items-center justify-between p-4 border-b">
+            <h2 className="text-lg font-semibold">Bản đồ thiết bị</h2>
+            <button
+              onClick={() => setShowMapOnMobile(false)}
+              className="p-2 rounded-md hover:bg-gray-100"
+            >
+              ✕
+            </button>
+          </div>
+          <div className="flex-1">
+            <Map 
+              center={mapCenter}
+              markers={equipment.length > 0 ? mapMarkers : searchedLocation ? [{
+                id: 'searched-location',
+                position: [searchedLocation.lat, searchedLocation.lng] as [number, number],
+                title: 'Vị trí tìm kiếm',
+                description: searchedLocation.address
+              }] : []}
+              zoom={12}
+              className="h-full w-full"
+              onLocationSelect={searchByCoordinates}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Main Content - Airbnb Style Layout */}
+      <div className="lg:flex lg:h-screen lg:max-h-screen">
+        
+        {/* Left Panel - Equipment List (50% width on desktop, full width on mobile) */}
+        <div className="w-full lg:w-1/2">
+          <div className="mt-2 text-sm text-gray-500 flex items-center justify-between">
+                <span className="inline-flex items-center">
+                  <Search className="h-4 w-4 mr-1" />
+                  {equipment.length} thiết bị được tìm thấy
+                </span>
+              </div>
+          <div className="max-w-none px-4 lg:px-6 py-4">
             {loading ? (
-              <div className="flex items-center justify-center py-20">
+              <div className="flex items-center justify-center py-12">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
                 <span className="ml-2 text-gray-600">Đang tải...</span>
               </div>
             ) : error ? (
-              <div className="text-center py-20">
-                <div className="text-red-500 mb-4 text-lg">{error}</div>
+              <div className="text-center py-12">
+                <div className="text-red-500 mb-2">{error}</div>
                 <button 
                   onClick={searchEquipment}
-                  className="bg-orange-500 text-white px-6 py-3 rounded-lg hover:bg-orange-600 transition-colors"
+                  className="bg-orange-500 text-white px-4 py-2 rounded-lg hover:bg-orange-600"
                 >
                   Thử lại
                 </button>
               </div>
             ) : equipment.length > 0 ? (
-              <div className="space-y-6">
+              <div className="space-y-4 pb-8">
                 {equipment.map((product) => (
                   <div
                     key={product.id}
                     onMouseEnter={() => setHoveredEquipment(product.id)}
                     onMouseLeave={() => setHoveredEquipment(null)}
-                    className={`transition-all duration-200 rounded-lg border bg-white cursor-pointer hover:shadow-lg ${
+                    className={`transition-all duration-200 rounded-lg p-4 border bg-white cursor-pointer ${
                       hoveredEquipment === product.id 
-                        ? 'border-orange-500 shadow-lg' 
-                        : 'border-gray-200'
+                        ? 'border-orange-500 shadow-lg transform scale-[1.02]' 
+                        : 'border-gray-200 hover:shadow-md hover:border-gray-300'
                     }`}
                     onClick={() => window.location.href = `/equipment/${product.id}`}
                   >
                     <ProductCard {...product} />
                   </div>
                 ))}
-                
-                {/* Load more or pagination can go here */}
-                <div className="text-center py-8 text-gray-500">
-                  <p>Đã hiển thị tất cả {equipment.length} thiết bị</p>
-                </div>
               </div>
             ) : (
-              <div className="text-center py-20">
-                <MapPin className="h-16 w-16 text-gray-300 mx-auto mb-6" />
-                <h3 className="text-xl font-medium text-gray-900 mb-3">
+              <div className="text-center py-12">
+                <MapPin className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">
                   Không tìm thấy thiết bị
                 </h3>
-                <p className="text-gray-600 mb-6 max-w-md mx-auto">
-                  {locationQuery ?
+                <p className="text-gray-600 mb-4">
+                  {locationQuery ? 
                     `Không có thiết bị nào tại "${locationQuery}". Thử mở rộng khu vực tìm kiếm.` :
-                    'Không có thiết bị nào phù hợp với tìm kiếm của bạn.'
+                    'Thử thay đổi từ khóa tìm kiếm hoặc bộ lọc'
                   }
                 </p>
                 {searchedLocation && (
-                  <div className="space-y-3">
-                    <button 
-                      onClick={() => {
-                        const expandedParams = new URLSearchParams();
-                        if (searchQuery) expandedParams.set('q', searchQuery);
-                        expandedParams.set('lat', searchedLocation.lat.toString());
-                        expandedParams.set('lng', searchedLocation.lng.toString());
-                        expandedParams.set('radius', '20'); // Expand to 20km
-                        
-                        window.location.href = `/equipments?${expandedParams.toString()}`;
-                      }}
-                      className="bg-orange-500 text-white px-6 py-3 rounded-lg hover:bg-orange-600 transition-colors"
-                    >
-                      Mở rộng khu vực tìm kiếm (20km)
-                    </button>
-                    <p className="text-sm text-gray-500">
-                      Hoặc click vào map để tìm kiếm ở vị trí khác
-                    </p>
-                  </div>
+                  <button
+                    onClick={() => {
+                      // Expand search radius by searching nearby areas
+                      const expandedParams = new URLSearchParams();
+                      if (searchQuery) expandedParams.set('q', searchQuery);
+                      expandedParams.set('lat', searchedLocation.lat.toString());
+                      expandedParams.set('lng', searchedLocation.lng.toString());
+                      expandedParams.set('radius', '10'); // Expand to 10km
+                      
+                      window.location.href = `/equipments?${expandedParams.toString()}`;
+                    }}
+                    className="bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700"
+                  >
+                    Mở rộng khu vực tìm kiếm (10km)
+                  </button>
                 )}
               </div>
             )}
           </div>
         </div>
 
-        {/* Right Panel - Fixed Map */}
-        <div className="hidden lg:block lg:w-1/2 sticky top-0">
-          <div className="h-full relative">
+        {/* Right Panel - Map (50% width on desktop, hidden on mobile, sticky position) */}
+        <div className="hidden lg:block lg:w-1/2 lg:h-screen lg:sticky lg:top-0">
+          <div className="h-full bg-gray-200">
             <Map 
               center={mapCenter}
-              markers={mapMarkers.length > 0 ? mapMarkers : (searchedLocation ? [{
+              markers={equipment.length > 0 ? mapMarkers : searchedLocation ? [{
                 id: 'searched-location',
-                position: [searchedLocation.lat, searchedLocation.lng],
+                position: [searchedLocation.lat, searchedLocation.lng] as [number, number],
                 title: 'Vị trí tìm kiếm',
                 description: searchedLocation.address
-              }] : [])}
+              }] : []}
               zoom={12}
               height="100%"
               className="h-full w-full"
               onLocationSelect={searchByCoordinates}
             />
-            
-            {/* Map overlay with search info */}
             {equipment.length === 0 && searchedLocation && (
-              <div className="absolute top-4 left-4 right-4 bg-white rounded-lg shadow-lg p-4 z-10">
-                <div className="flex items-start space-x-3">
-                  <MapPin className="h-5 w-5 text-orange-500 mt-0.5" />
-                  <div>
-                    <h4 className="font-medium text-gray-900">
-                      Vị trí tìm kiếm: {searchedLocation.address}
-                    </h4>
-                    <p className="text-sm text-gray-600 mt-1">
-                      Không tìm thấy thiết bị tại đây. Hãy thử mở rộng khu vực hoặc click vào map để tìm kiếm ở vị trí khác.
-                    </p>
-                  </div>
+              <div className="absolute bottom-4 left-4 right-4 bg-white p-4 rounded-lg shadow-lg">
+                <div className="text-center">
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">
+                    Không tìm thấy thiết bị tại &quot;{searchedLocation.address}&quot;
+                  </h3>
+                  <p className="text-gray-600 mb-3">
+                    Thử mở rộng khu vực tìm kiếm hoặc thay đổi từ khóa
+                  </p>
+                  <button
+                    onClick={() => {
+                      // Expand search radius by searching nearby areas
+                      const expandedParams = new URLSearchParams();
+                      if (searchQuery) expandedParams.set('q', searchQuery);
+                      expandedParams.set('lat', searchedLocation.lat.toString());
+                      expandedParams.set('lng', searchedLocation.lng.toString());
+                      expandedParams.set('radius', '10'); // Expand to 10km
+                      
+                      window.location.href = `/equipments?${expandedParams.toString()}`;
+                    }}
+                    className="bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700"
+                  >
+                    Mở rộng khu vực tìm kiếm
+                  </button>
                 </div>
               </div>
             )}

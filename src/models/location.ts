@@ -8,7 +8,8 @@ const LocationSchema = new Schema({
     },
     coordinates: {
         type: [Number], // [longitude, latitude]
-        required: true
+        required: true,
+        index: '2dsphere' // Add geospatial index for proximity search
     },
     address: {
         type: String,
@@ -21,5 +22,8 @@ const LocationSchema = new Schema({
         default: 'Vietnam'
     }
 }, { _id: false });
+
+// Ensure geospatial index is created
+LocationSchema.index({ coordinates: '2dsphere' });
 
 export { LocationSchema };
