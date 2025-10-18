@@ -42,14 +42,41 @@ export default function LoginPage() {
     }
 
     setIsLoading(true);
+    setErrors({});
     
-    // Simulate API call
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      console.log('Login attempt:', formData);
-      // Handle successful login here
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: formData.email,
+          password: formData.password
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        console.log('Login successful:', data.user);
+        
+        // Store user data in localStorage
+        localStorage.setItem('user', JSON.stringify(data.user));
+        
+        // Show success message
+        alert(`Đăng nhập thành công! Chào mừng ${data.user.name}`);
+        
+        // Redirect to home page
+        window.location.href = '/';
+        
+      } else {
+        setErrors({ general: data.message || 'Đăng nhập thất bại' });
+      }
+      
     } catch (error) {
       console.error('Login error:', error);
+      setErrors({ general: 'Lỗi kết nối server' });
     } finally {
       setIsLoading(false);
     }
@@ -165,6 +192,13 @@ export default function LoginPage() {
                   </Link>
                 </div>
               </div>
+
+              {/* General Error Message */}
+              {errors.general && (
+                <div className="bg-red-50 border border-red-200 rounded-md p-4">
+                  <p className="text-sm text-red-600">{errors.general}</p>
+                </div>
+              )}
 
               {/* Submit Button */}
               <div>

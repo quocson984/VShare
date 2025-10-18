@@ -80,8 +80,8 @@ const AccountSchema = new Schema({
     verifications: [VerificationSchema],
     status: { 
         type: String, 
-        enum: ['active', 'inactive', 'banned'], 
-        default: 'inactive' 
+        enum: ['active', 'unverified', 'banned'],  
+        default: 'unverified' 
     },
 }, {
     timestamps: true

@@ -96,8 +96,13 @@ function EquipmentsPage() {
       
       const response = await fetch(`/api/equipment/search?${params.toString()}`);
       
+      console.log('API URL:', `/api/equipment/search?${params.toString()}`);
+      console.log('Response status:', response.status);
+      
       if (!response.ok) {
-        throw new Error('Không thể tải danh sách thiết bị');
+        const errorText = await response.text();
+        console.error('API Error:', response.status, errorText);
+        throw new Error(`Không thể tải danh sách thiết bị (${response.status}): ${errorText}`);
       }
       
       const data = await response.json();
@@ -238,7 +243,11 @@ function EquipmentsPage() {
       id: item.id,
       position: [item.coordinates!.lat, item.coordinates!.lng] as [number, number],
       title: item.name,
-      description: `${item.price.toLocaleString('vi-VN')}đ/ngày - ${item.location}`
+      description: item.location,
+      price: item.price,
+      image: item.image,
+      rating: item.rating,
+      available: item.available
     }));
 
   return (

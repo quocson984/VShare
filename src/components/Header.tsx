@@ -1,9 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { Camera, Menu, X, ShoppingCart, User, Search, MapPin } from 'lucide-react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Camera, Menu, X, Heart, User, Search, MapPin } from 'lucide-react';
 import LocationAutocomplete from './LocationAutocomplete';
 
 export default function Header() {
@@ -11,7 +11,38 @@ export default function Header() {
   const [searchQuery, setSearchQuery] = useState('');
   const [location, setLocation] = useState('');
   const [showEquipmentDropdown, setShowEquipmentDropdown] = useState(false);
+  const [user, setUser] = useState<{id: string, email: string, name: string} | null>(null);
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // Initialize search values from URL params and user state
+  useEffect(() => {
+    const q = searchParams.get('q') || '';
+    const loc = searchParams.get('location') || '';
+    setSearchQuery(q);
+    setLocation(loc);
+    
+    // Check for saved user in localStorage
+    const savedUser = localStorage.getItem('user');
+    if (savedUser) {
+      try {
+        setUser(JSON.parse(savedUser));
+      } catch (e) {
+        console.error('Error parsing user data:', e);
+        localStorage.removeItem('user');
+      }
+    }
+  }, [searchParams]);
+
+  const handleLogin = () => {
+    router.push('/login');
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('user');
+    setUser(null);
+    router.push('/');
+  };
 
   // Equipment suggestions for autocomplete  
   const equipmentSuggestions = [
@@ -59,11 +90,10 @@ export default function Header() {
           {/* Logo */}
           <Link href="/" className="flex items-center space-x-2 flex-shrink-0">
             <Camera className="h-8 w-8 text-orange-600" />
-            {/* <span className="text-2xl font-bold text-gray-900">VShare</span> */}
           </Link>
 
-          {/* Search Bar - Desktop */}
-          <div className="hidden md:flex flex-1 max-w-4xl mx-8">
+          {/* Search Bar */}
+          <div className="hidden md:flex flex-1 max-w-4xl mx-[15vw]">
             <form onSubmit={handleSearch} className="flex w-full">
               {/* Main Search Bar */}
               <div className="flex bg-gray-50 rounded-lg border border-gray-200 flex-1">
@@ -79,7 +109,7 @@ export default function Header() {
                         console.log('Selected location:', selectedLocation);
                       }}
                       placeholder="Chọn địa điểm"
-                      className="bg-transparent border-none outline-none text-sm flex-1 placeholder-gray-500 px-0 py-2"
+                      className="bg-transparent border-none text-sm placeholder-gray-500 px-0 mx-[-15px] py-2 "
                     />
                   </div>
                 </div>
@@ -129,61 +159,33 @@ export default function Header() {
                   <Search className="h-4 w-4" />
                 </button>
               </div>
-
-              {/* Filters - Like Airbnb */}
-              <div className="flex items-center ml-4 space-x-3">
-                {/* Price Range Filter */}
-                <div className="relative">
-                  <select className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white hover:border-gray-400 focus:border-orange-500 focus:ring-1 focus:ring-orange-500">
-                    <option value="">Khoảng giá</option>
-                    <option value="0-200000">Dưới 200k</option>
-                    <option value="200000-500000">200k - 500k</option>
-                    <option value="500000-1000000">500k - 1tr</option>
-                    <option value="1000000-2000000">1tr - 2tr</option>
-                    <option value="2000000+">Trên 2tr</option>
-                  </select>
-                </div>
-
-                {/* Rating Filter */}
-                <div className="relative">
-                  <select className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white hover:border-gray-400 focus:border-orange-500 focus:ring-1 focus:ring-orange-500">
-                    <option value="">Đánh giá</option>
-                    <option value="4.5+">4.5+ ⭐</option>
-                    <option value="4.0+">4.0+ ⭐</option>
-                    <option value="3.5+">3.5+ ⭐</option>
-                    <option value="3.0+">3.0+ ⭐</option>
-                  </select>
-                </div>
-              </div>
             </form>
           </div>
 
           {/* Desktop Actions */}
           <div className="hidden md:flex items-center space-x-4 flex-shrink-0">
-            <Link href="/equipments" className="text-gray-700 hover:text-orange-600 transition-colors text-sm font-medium">
-              Thiết bị
-            </Link>
-            <Link href="/cart" className="relative p-2 text-gray-700 hover:text-orange-600 transition-colors">
-              <ShoppingCart className="h-6 w-6" />
+            <button className="relative p-2 text-gray-700 hover:text-orange-600 transition-colors">
+              <Heart className="h-6 w-6" />
               <span className="absolute -top-1 -right-1 bg-orange-600 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
                 0
               </span>
-            </Link>
-            <Link href="/login" className="text-gray-700 hover:text-orange-600 transition-colors">
-              <User className="h-6 w-6" />
-            </Link>
-            <Link href="/register" className="btn-primary">
-              Đăng ký
-            </Link>
+            </button>
+            {user ? (
+              <div className="flex items-center space-x-2">
+                <span className="text-sm text-gray-700">Xin chào, {user.name}</span>
+                <button 
+                  onClick={handleLogout}
+                  className="text-sm text-orange-600 hover:text-orange-700"
+                >
+                  Đăng xuất
+                </button>
+              </div>
+            ) : (
+              <button onClick={handleLogin} className="btn-primary">
+                Đăng nhập
+              </button>
+            )}
           </div>
-
-          {/* Mobile menu button */}
-          <button
-            onClick={() => setIsMenuOpen(!isMenuOpen)}
-            className="md:hidden p-2 text-gray-700 hover:text-orange-600 transition-colors"
-          >
-            {isMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-          </button>
         </div>
 
         {/* Mobile Navigation */}
@@ -226,51 +228,32 @@ export default function Header() {
             </div>
             
             <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3 bg-white border-t">
-              <Link
-                href="/equipments"
-                className="block px-3 py-2 text-gray-700 hover:text-orange-600 transition-colors"
-                onClick={() => setIsMenuOpen(false)}
-              >
-                Thiết bị
-              </Link>
-              <Link
-                href="/about"
-                className="block px-3 py-2 text-gray-700 hover:text-orange-600 transition-colors"
-                onClick={() => setIsMenuOpen(false)}
-              >
-                Về chúng tôi
-              </Link>
-              <Link
-                href="/contact"
-                className="block px-3 py-2 text-gray-700 hover:text-orange-600 transition-colors"
-                onClick={() => setIsMenuOpen(false)}
-              >
-                Liên hệ
-              </Link>
               <div className="pt-4 space-y-2">
-                <Link
-                  href="/cart"
-                  className="flex items-center px-3 py-2 text-gray-700 hover:text-orange-600 transition-colors"
-                  onClick={() => setIsMenuOpen(false)}
-                >
-                  <ShoppingCart className="h-5 w-5 mr-2" />
-                  Giỏ hàng
-                </Link>
-                <Link
-                  href="/login"
-                  className="flex items-center px-3 py-2 text-gray-700 hover:text-orange-600 transition-colors"
-                  onClick={() => setIsMenuOpen(false)}
-                >
-                  <User className="h-5 w-5 mr-2" />
-                  Đăng nhập
-                </Link>
-                <Link
-                  href="/register"
-                  className="block px-3 py-2 bg-orange-600 text-white rounded-lg text-center"
-                  onClick={() => setIsMenuOpen(false)}
-                >
-                  Đăng ký
-                </Link>
+                <button className="flex items-center px-3 py-2 text-gray-700 hover:text-orange-600 transition-colors w-full text-left">
+                  <Heart className="h-5 w-5 mr-2" />
+                  Yêu thích
+                </button>
+                {user ? (
+                  <>
+                    <div className="px-3 py-2 text-gray-700">
+                      Xin chào, {user.name}
+                    </div>
+                    <button 
+                      onClick={handleLogout}
+                      className="flex items-center px-3 py-2 text-orange-600 hover:text-orange-700 transition-colors w-full text-left"
+                    >
+                      <User className="h-5 w-5 mr-2" />
+                      Đăng xuất
+                    </button>
+                  </>
+                ) : (
+                  <button 
+                    onClick={handleLogin}
+                    className="block px-3 py-2 bg-orange-600 text-white rounded-lg text-center w-full"
+                  >
+                    Đăng nhập
+                  </button>
+                )}
               </div>
             </div>
           </div>

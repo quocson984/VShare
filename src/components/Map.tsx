@@ -11,6 +11,10 @@ interface MapProps {
     position: [number, number];
     title: string;
     description?: string;
+    price?: number;
+    image?: string;
+    rating?: number;
+    available?: boolean;
   }>;
   onLocationSelect?: (lat: number, lng: number) => void;
   height?: string;
@@ -184,13 +188,33 @@ function LeafletMap({
             const marker = L.marker(markerData.position)
               .addTo(mapInstance.current)
               .bindPopup(`
-                <div style="padding: 8px; min-width: 200px;">
-                  <h3 style="margin: 0 0 4px 0; font-weight: 600; font-size: 14px;">${markerData.title}</h3>
-                  ${markerData.description ? `<p style="margin: 0; font-size: 12px; color: #666;">${markerData.description}</p>` : ''}
+                <div style="padding: 12px; min-width: 250px; font-family: system-ui, -apple-system, sans-serif;">
+                  ${markerData.image ? `
+                    <img src="${markerData.image}" alt="${markerData.title}" 
+                         style="width: 100%; height: 120px; object-fit: cover; border-radius: 8px; margin-bottom: 8px;" />
+                  ` : ''}
+                  <h3 style="margin: 0 0 4px 0; font-weight: 600; font-size: 16px; color: #1f2937;">${markerData.title}</h3>
+                  ${markerData.price ? `
+                    <p style="margin: 0 0 4px 0; font-size: 14px; font-weight: 600; color: #059669;">
+                      ${markerData.price.toLocaleString('vi-VN')}đ/ngày
+                    </p>
+                  ` : ''}
+                  ${markerData.rating ? `
+                    <div style="display: flex; align-items: center; margin-bottom: 8px;">
+                      <span style="color: #fbbf24; margin-right: 4px;">★</span>
+                      <span style="font-size: 12px; color: #374151;">${markerData.rating} ${markerData.available !== false ? '• Có sẵn' : '• Không có sẵn'}</span>
+                    </div>
+                  ` : ''}
+                  ${markerData.description ? `<p style="margin: 0 0 8px 0; font-size: 12px; color: #6b7280;">${markerData.description}</p>` : ''}
+                  <a href="/equipment/${markerData.id}" 
+                     style="display: inline-block; padding: 6px 12px; background: #ea580c; color: white; text-decoration: none; border-radius: 6px; font-size: 12px; font-weight: 500;"
+                     target="_blank">
+                    Xem chi tiết
+                  </a>
                 </div>
               `, {
-                maxWidth: 300,
-                className: 'custom-popup'
+                maxWidth: 280,
+                className: 'equipment-popup'
               });
             
             markersRef.current.push(marker);
