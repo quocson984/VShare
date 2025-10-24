@@ -134,9 +134,6 @@ export default function RegisterPage() {
     setIsLoading(true);
 
     try {
-      // Simulate API call - in production, this would be an actual API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
       // Store data in localStorage to persist across tabs
       localStorage.setItem('authData', JSON.stringify(authData));
 
@@ -160,9 +157,6 @@ export default function RegisterPage() {
     setIsLoading(true);
 
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
       // Store data in localStorage
       localStorage.setItem('personalData', JSON.stringify(personalData));
 
@@ -186,34 +180,87 @@ export default function RegisterPage() {
     setIsLoading(true);
 
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      // Store data in localStorage
-      localStorage.setItem('identityData', JSON.stringify(identityData));
-
-      // In a real app, here we would submit all data to the backend
+      // Get stored data from previous stages
       const storedAuthData = localStorage.getItem('authData');
       const storedPersonalData = localStorage.getItem('personalData');
 
-      if (storedAuthData && storedPersonalData) {
-        const combinedData = {
-          ...JSON.parse(storedAuthData),
-          ...JSON.parse(storedPersonalData),
-          ...identityData
-        };
-
-        console.log('Submitting registration data:', combinedData);
-
-        // Mock successful API call
-        localStorage.setItem('accountId', 'mock-account-id-123');
+      if (!storedAuthData || !storedPersonalData) {
+        setErrors({ submit: 'Dữ liệu không hợp lệ. Vui lòng bắt đầu lại.' });
+        return;
       }
 
-      // Redirect to verification status page
-      router.push('/verify');
-    } catch (error) {
+      const authDataParsed = JSON.parse(storedAuthData);
+      const personalDataParsed = JSON.parse(storedPersonalData);
+
+      // Prepare form data for API call
+      const formData = new FormData();
+      formData.append('email', authDataParsed.email);
+      formData.append('password', authDataParsed.password);
+      formData.append('fullname', personalDataParsed.fullname);
+      formData.append('phone', personalDataParsed.phone);
+      formData.append('address', personalDataParsed.address);
+      formData.append('identityNumber', identityData.identityNumber);
+      formData.append('identityFullname', identityData.identityFullname);
+
+      // Helper function to convert data URL to File
+      const dataURLToFile = async (dataURL: string, filename: string): Promise<File> => {
+        const response = await fetch(dataURL);
+        const blob = await response.blob();
+        return new File([blob], filename, { type: blob.type });
+      };
+
+      // Add avatar if available (using selfie as avatar for now)
+      if (identityData.selfie) {
+        const avatarFile = await dataURLToFile(identityData.selfie, 'avatar.jpg');
+        formData.append('avatar', avatarFile);
+      }
+
+      // Add identity documents
+      if (identityData.frontCccd) {
+        const frontCccdFile = await dataURLToFile(identityData.frontCccd, 'front_cccd.jpg');
+        formData.append('frontCccd', frontCccdFile);
+      }
+
+      if (identityData.backCccd) {
+        const backCccdFile = await dataURLToFile(identityData.backCccd, 'back_cccd.jpg');
+        formData.append('backCccd', backCccdFile);
+      }
+
+      if (identityData.selfie) {
+        const selfieFile = await dataURLToFile(identityData.selfie, 'selfie.jpg');
+        formData.append('selfie', selfieFile);
+      }
+
+      // Call register API
+      const response = await fetch('/api/auth/register', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || 'Đăng ký thất bại');
+      }
+
+      if (result.success) {
+        // Store user data
+        localStorage.setItem('user', JSON.stringify(result.user));
+        localStorage.setItem('accountId', result.user.id);
+
+        // Clear temporary data
+        localStorage.removeItem('authData');
+        localStorage.removeItem('personalData');
+        localStorage.removeItem('identityData');
+
+        // Redirect to verification status page
+        router.push('/verify');
+      } else {
+        throw new Error(result.message || 'Đăng ký thất bại');
+      }
+    } catch (error: any) {
       console.error('Registration error:', error);
-      setErrors({ submit: 'Đã xảy ra lỗi. Vui lòng thử lại sau.' });
+      setErrors({ submit: error.message || 'Đã xảy ra lỗi. Vui lòng thử lại sau.' });
     } finally {
       setIsLoading(false);
     }
@@ -754,8 +801,6 @@ export default function RegisterPage() {
                     )}
                   </div>
                 </div>
-
-
                 {/* Nav Buttons */}
                 <div className="flex space-x-4">
                   <button

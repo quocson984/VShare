@@ -2,201 +2,330 @@
 
 import { useState } from 'react';
 import Header from '@/components/Header';
-import ImageUpload from '@/components/ImageUpload';
-import { CheckCircle, AlertCircle } from 'lucide-react';
+import Footer from '@/components/Footer';
+import { Upload, Image as ImageIcon, CheckCircle, XCircle, Loader } from 'lucide-react';
+import Image from 'next/image';
 
 export default function TestUploadPage() {
-  const [uploadedUrls, setUploadedUrls] = useState<string[]>([]);
-  const [messages, setMessages] = useState<{ type: 'success' | 'error'; text: string }[]>([]);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadResult, setUploadResult] = useState<any>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleUploadSuccess = (imageUrl: string) => {
-    setUploadedUrls(prev => [...prev, imageUrl]);
-    setMessages(prev => [...prev, { type: 'success', text: `Upload thành công: ${imageUrl}` }]);
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      setError('Vui lòng chọn file hình ảnh');
+      return;
+    }
+
+    // Validate file size (max 32MB)
+    if (file.size > 32 * 1024 * 1024) {
+      setError('File quá lớn (tối đa 32MB)');
+      return;
+    }
+
+    setSelectedFile(file);
+    setError(null);
+    setUploadResult(null);
+
+    // Create preview URL
+    const url = URL.createObjectURL(file);
+    setPreviewUrl(url);
   };
 
-  const handleUploadError = (error: string) => {
-    setMessages(prev => [...prev, { type: 'error', text: `Lỗi upload: ${error}` }]);
+  const handleUpload = async () => {
+    if (!selectedFile) {
+      setError('Vui lòng chọn file để upload');
+      return;
+    }
+
+    setIsUploading(true);
+    setError(null);
+    setUploadResult(null);
+
+    try {
+      const formData = new FormData();
+      formData.append('image', selectedFile);
+
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || 'Upload thất bại');
+      }
+
+      setUploadResult(result);
+    } catch (err: any) {
+      setError(err.message || 'Đã xảy ra lỗi khi upload');
+    } finally {
+      setIsUploading(false);
+    }
   };
 
-  const clearMessages = () => {
-    setMessages([]);
-  };
-
-  const clearUploadedImages = () => {
-    setUploadedUrls([]);
+  const handleReset = () => {
+    setSelectedFile(null);
+    setPreviewUrl(null);
+    setUploadResult(null);
+    setError(null);
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+    }
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen">
       <Header />
-      
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-4">Test Image Upload</h1>
-          <p className="text-gray-600">
-            Test tính năng upload hình ảnh sử dụng ImgBB API. Hệ thống hỗ trợ upload nhiều file, 
-            kéo thả, và preview hình ảnh.
-          </p>
-        </div>
 
-        {/* Upload Component */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">Upload Hình Ảnh</h2>
-          
-          <ImageUpload
-            onUploadSuccess={handleUploadSuccess}
-            onUploadError={handleUploadError}
-            multiple={true}
-            maxFiles={10}
-            className="mb-4"
-          />
-        </div>
-
-        {/* Messages */}
-        {messages.length > 0 && (
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">Thông báo</h3>
-              <button
-                onClick={clearMessages}
-                className="text-sm text-gray-500 hover:text-gray-700"
-              >
-                Xóa tất cả
-              </button>
-            </div>
-            
-            <div className="space-y-2 max-h-40 overflow-y-auto">
-              {messages.map((message, index) => (
-                <div
-                  key={index}
-                  className={`flex items-start space-x-2 p-3 rounded-lg ${
-                    message.type === 'success' ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'
-                  }`}
-                >
-                  {message.type === 'success' ? (
-                    <CheckCircle className="h-5 w-5 mt-0.5 flex-shrink-0" />
-                  ) : (
-                    <AlertCircle className="h-5 w-5 mt-0.5 flex-shrink-0" />
-                  )}
-                  <span className="text-sm break-all">{message.text}</span>
-                </div>
-              ))}
-            </div>
+      <div className="container mx-auto px-4 py-16">
+        <div className="max-w-4xl mx-auto">
+          <div className="text-center mb-8">
+            <h1 className="text-3xl font-bold text-gray-900 mb-4">
+              Test Image Upload API
+            </h1>
+            <p className="text-gray-600">
+              Test chức năng upload hình ảnh sử dụng IMGBB API
+            </p>
           </div>
-        )}
 
-        {/* Uploaded URLs List */}
-        {uploadedUrls.length > 0 && (
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">
-                URLs Đã Upload ({uploadedUrls.length})
-              </h3>
-              <button
-                onClick={clearUploadedImages}
-                className="text-sm text-gray-500 hover:text-gray-700"
-              >
-                Xóa tất cả
-              </button>
-            </div>
-            
-            <div className="space-y-3">
-              {uploadedUrls.map((url, index) => (
-                <div key={index} className="border border-gray-200 rounded-lg p-4">
-                  <div className="flex items-start space-x-4">
-                    {/* Image Preview */}
-                    <div className="flex-shrink-0">
-                      <img
-                        src={url}
-                        alt={`Upload ${index + 1}`}
-                        className="w-20 h-20 object-cover rounded-lg"
-                      />
-                    </div>
-                    
-                    {/* URL Info */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between mb-2">
-                        <h4 className="text-sm font-medium text-gray-900">
-                          Hình ảnh #{index + 1}
-                        </h4>
-                        <button
-                          onClick={() => navigator.clipboard.writeText(url)}
-                          className="text-xs bg-gray-100 hover:bg-gray-200 px-2 py-1 rounded"
-                        >
-                          Copy URL
-                        </button>
-                      </div>
-                      
-                      <p className="text-sm text-gray-600 break-all font-mono bg-gray-50 p-2 rounded">
-                        {url}
-                      </p>
-                      
-                      <div className="mt-2 flex space-x-2">
-                        <a
-                          href={url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-xs text-blue-600 hover:text-blue-800"
-                        >
-                          Xem ảnh gốc
-                        </a>
-                      </div>
-                    </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {/* Upload Section */}
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <h2 className="text-xl font-semibold mb-4 flex items-center">
+                <Upload className="h-5 w-5 mr-2" />
+                Upload Image
+              </h2>
+
+              {/* File Input */}
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Chọn hình ảnh
+                </label>
+                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-gray-400 transition-colors">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileSelect}
+                    className="hidden"
+                    id="file-input"
+                  />
+                  <label
+                    htmlFor="file-input"
+                    className="cursor-pointer flex flex-col items-center"
+                  >
+                    <ImageIcon className="h-12 w-12 text-gray-400 mb-2" />
+                    <span className="text-sm text-gray-600">
+                      Click để chọn file hoặc kéo thả vào đây
+                    </span>
+                    <span className="text-xs text-gray-500 mt-1">
+                      Hỗ trợ: JPEG, PNG, GIF, BMP, WebP (tối đa 32MB)
+                    </span>
+                  </label>
+                </div>
+              </div>
+
+              {/* File Info */}
+              {selectedFile && (
+                <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+                  <h3 className="font-medium text-gray-900 mb-2">File đã chọn:</h3>
+                  <div className="text-sm text-gray-600 space-y-1">
+                    <p><strong>Tên:</strong> {selectedFile.name}</p>
+                    <p><strong>Kích thước:</strong> {(selectedFile.size / 1024 / 1024).toFixed(2)} MB</p>
+                    <p><strong>Loại:</strong> {selectedFile.type}</p>
                   </div>
                 </div>
-              ))}
+              )}
+
+              {/* Preview */}
+              {previewUrl && (
+                <div className="mb-6">
+                  <h3 className="font-medium text-gray-900 mb-2">Preview:</h3>
+                  <div className="relative w-full h-64 border rounded-lg overflow-hidden">
+                    <Image
+                      src={previewUrl}
+                      alt="Preview"
+                      fill
+                      style={{ objectFit: 'contain' }}
+                      className="bg-gray-50"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div className="flex space-x-3">
+                <button
+                  onClick={handleUpload}
+                  disabled={!selectedFile || isUploading}
+                  className="flex-1 bg-orange-600 text-white py-2 px-4 rounded-md hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                >
+                  {isUploading ? (
+                    <>
+                      <Loader className="h-4 w-4 mr-2 animate-spin" />
+                      Đang upload...
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="h-4 w-4 mr-2" />
+                      Upload
+                    </>
+                  )}
+                </button>
+                <button
+                  onClick={handleReset}
+                  className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                >
+                  Reset
+                </button>
+              </div>
+            </div>
+
+            {/* Results Section */}
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <h2 className="text-xl font-semibold mb-4 flex items-center">
+                {uploadResult ? (
+                  <CheckCircle className="h-5 w-5 mr-2 text-green-500" />
+                ) : error ? (
+                  <XCircle className="h-5 w-5 mr-2 text-red-500" />
+                ) : (
+                  <ImageIcon className="h-5 w-5 mr-2" />
+                )}
+                Kết quả
+              </h2>
+
+              {/* Error Display */}
+              {error && (
+                <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-md">
+                  <div className="flex items-center">
+                    <XCircle className="h-5 w-5 text-red-500 mr-2" />
+                    <span className="text-red-700 font-medium">Lỗi:</span>
+                  </div>
+                  <p className="text-red-600 mt-1">{error}</p>
+                </div>
+              )}
+
+              {/* Success Display */}
+              {uploadResult && (
+                <div className="space-y-4">
+                  <div className="p-4 bg-green-50 border border-green-200 rounded-md">
+                    <div className="flex items-center mb-2">
+                      <CheckCircle className="h-5 w-5 text-green-500 mr-2" />
+                      <span className="text-green-700 font-medium">Upload thành công!</span>
+                    </div>
+                    <p className="text-green-600 text-sm">{uploadResult.message}</p>
+                  </div>
+
+                  {/* Uploaded Image */}
+                  {uploadResult.data?.url && (
+                    <div>
+                      <h3 className="font-medium text-gray-900 mb-2">Hình ảnh đã upload:</h3>
+                      <div className="relative w-full h-64 border rounded-lg overflow-hidden">
+                        <Image
+                          src={uploadResult.data.url}
+                          alt="Uploaded image"
+                          fill
+                          style={{ objectFit: 'contain' }}
+                          className="bg-gray-50"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* API Response Details */}
+                  <div>
+                    <h3 className="font-medium text-gray-900 mb-2">Chi tiết API Response:</h3>
+                    <div className="bg-gray-50 rounded-md p-4">
+                      <pre className="text-xs text-gray-700 overflow-auto">
+                        {JSON.stringify(uploadResult, null, 2)}
+                      </pre>
+                    </div>
+                  </div>
+
+                  {/* Image URLs */}
+                  {uploadResult.data && (
+                    <div>
+                      <h3 className="font-medium text-gray-900 mb-2">URLs:</h3>
+                      <div className="space-y-2">
+                        <div>
+                          <label className="text-sm font-medium text-gray-600">Display URL:</label>
+                          <div className="flex items-center space-x-2">
+                            <input
+                              type="text"
+                              value={uploadResult.data.url}
+                              readOnly
+                              className="flex-1 text-xs p-2 border rounded bg-gray-50"
+                            />
+                            <button
+                              onClick={() => navigator.clipboard.writeText(uploadResult.data.url)}
+                              className="px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600"
+                            >
+                              Copy
+                            </button>
+                          </div>
+                        </div>
+                        {uploadResult.data.thumbUrl && (
+                          <div>
+                            <label className="text-sm font-medium text-gray-600">Thumbnail URL:</label>
+                            <div className="flex items-center space-x-2">
+                              <input
+                                type="text"
+                                value={uploadResult.data.thumbUrl}
+                                readOnly
+                                className="flex-1 text-xs p-2 border rounded bg-gray-50"
+                              />
+                              <button
+                                onClick={() => navigator.clipboard.writeText(uploadResult.data.thumbUrl)}
+                                className="px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600"
+                              >
+                                Copy
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Instructions */}
+              {!uploadResult && !error && (
+                <div className="text-center text-gray-500 py-8">
+                  <ImageIcon className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                  <p>Chọn file và upload để xem kết quả</p>
+                </div>
+              )}
             </div>
           </div>
-        )}
 
-        {/* API Documentation */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mt-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">API Documentation</h3>
-          
-          <div className="space-y-4">
-            <div>
-              <h4 className="font-medium text-gray-900">Endpoint</h4>
-              <p className="text-sm text-gray-600 font-mono bg-gray-50 p-2 rounded">
-                POST /api/upload
-              </p>
-            </div>
-            
-            <div>
-              <h4 className="font-medium text-gray-900">Request Format</h4>
-              <p className="text-sm text-gray-600">Content-Type: multipart/form-data</p>
-              <p className="text-sm text-gray-600">Field: image (File)</p>
-            </div>
-            
-            <div>
-              <h4 className="font-medium text-gray-900">Supported Formats</h4>
-              <p className="text-sm text-gray-600">JPEG, PNG, GIF, BMP, WebP</p>
-            </div>
-            
-            <div>
-              <h4 className="font-medium text-gray-900">File Size Limit</h4>
-              <p className="text-sm text-gray-600">32MB per file</p>
-            </div>
-            
-            <div>
-              <h4 className="font-medium text-gray-900">Response Example</h4>
-              <pre className="text-xs text-gray-600 bg-gray-50 p-3 rounded overflow-x-auto">
-{`{
-  "success": true,
-  "data": {
-    "url": "https://i.ibb.co/...",
-    "deleteUrl": "https://ibb.co/...",
-    "displayUrl": "https://i.ibb.co/...",
-    "thumbUrl": "https://i.ibb.co/...",
-    "filename": "image.jpg",
-    "size": 1234567
-  },
-  "message": "Upload hình ảnh thành công"
-}`}
-              </pre>
+          {/* API Information */}
+          <div className="mt-8 bg-blue-50 rounded-lg p-6">
+            <h3 className="text-lg font-semibold text-blue-900 mb-3">Thông tin API</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+              <div>
+                <p><strong>Endpoint:</strong> <code className="bg-blue-100 px-2 py-1 rounded">/api/upload</code></p>
+                <p><strong>Method:</strong> POST</p>
+                <p><strong>Content-Type:</strong> multipart/form-data</p>
+              </div>
+              <div>
+                <p><strong>Field name:</strong> image</p>
+                <p><strong>Max size:</strong> 32MB</p>
+                <p><strong>Supported formats:</strong> JPEG, PNG, GIF, BMP, WebP</p>
+              </div>
             </div>
           </div>
         </div>
       </div>
+
+      <Footer />
     </div>
   );
 }
