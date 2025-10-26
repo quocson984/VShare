@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
       console.error('AccountModel error:', modelError);
       return NextResponse.json({
         success: false,
-        message: 'Database model error: ' + modelError.message
+        message: 'Database model error: ' + (modelError as Error).message
       }, { status: 500 });
     }
 

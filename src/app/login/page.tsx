@@ -63,12 +63,14 @@ export default function LoginPage() {
         
         // Store user data in localStorage
         localStorage.setItem('user', JSON.stringify(data.user));
+        localStorage.setItem('accountId', data.user.id);
         
-        // Show success message
-        alert(`Đăng nhập thành công! Chào mừng ${data.user.name}`);
-        
-        // Redirect to home page
-        window.location.href = '/';
+        // Redirect based on user role
+        if (data.user.role === 'admin') {
+          window.location.href = '/admin';
+        } else {
+          window.location.href = '/';
+        }
         
       } else {
         setErrors({ general: data.message || 'Đăng nhập thất bại' });

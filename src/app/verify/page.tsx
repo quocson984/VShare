@@ -5,47 +5,54 @@ import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { CheckCircle, Clock, AlertTriangle, ArrowRight } from 'lucide-react';
-
-// Mock data for demonstration
-const mockVerificationData = {
-  status: 'pending', // 'pending', 'verified', 'rejected'
-  createdAt: new Date().toISOString(),
-  updatedAt: null,
-  notes: null
-};
+import { CheckCircle, Clock, AlertTriangle, ArrowRight, RefreshCw } from 'lucide-react';
 
 export default function VerifyPage() {
   const router = useRouter();
-  const [verificationStatus, setVerificationStatus] = useState(mockVerificationData);
+  const [verificationStatus, setVerificationStatus] = useState<{
+    status: 'pending' | 'verified' | 'rejected';
+    createdAt: string;
+    updatedAt?: string | null;
+    notes?: string | null;
+  } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
 
-  useEffect(() => {
-    const fetchVerificationStatus = async () => {
-      try {
-        setIsLoading(true);
-        
-        // Simulate API call
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        // For demo: randomly choose a status
-        const statuses = ['pending', 'verified', 'rejected'];
-        const randomStatus = statuses[Math.floor(Math.random() * statuses.length)];
-        
-        setVerificationStatus({
-          status: randomStatus,
-          createdAt: new Date().toISOString(),
-          updatedAt: randomStatus !== 'pending' ? new Date().toISOString() : null,
-          notes: randomStatus === 'rejected' ? 'Hình ảnh CCCD không rõ nét, vui lòng chụp lại' : null
-        });
-      } catch (err) {
-        setError('Không thể tải thông tin xác minh. Vui lòng thử lại sau.');
-      } finally {
-        setIsLoading(false);
+  const fetchVerificationStatus = async () => {
+    try {
+      setIsLoading(true);
+      setError('');
+      
+      // Get user ID from localStorage
+      const accountId = localStorage.getItem('accountId');
+      if (!accountId) {
+        setError('Không tìm thấy thông tin tài khoản. Vui lòng đăng nhập lại.');
+        return;
       }
-    };
 
+      // Fetch verification status from API
+      const response = await fetch(`/api/user/verification-status?userId=${accountId}`);
+      
+      if (!response.ok) {
+        throw new Error('Không thể tải thông tin xác minh');
+      }
+
+      const data = await response.json();
+      
+      if (data.success) {
+        setVerificationStatus(data.verification);
+      } else {
+        throw new Error(data.message || 'Không thể tải thông tin xác minh');
+      }
+    } catch (err: any) {
+      console.error('Error fetching verification status:', err);
+      setError(err.message || 'Không thể tải thông tin xác minh. Vui lòng thử lại sau.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchVerificationStatus();
   }, []);
 
@@ -63,6 +70,25 @@ export default function VerifyPage() {
   };
 
   const renderStatusContent = () => {
+    if (!verificationStatus) {
+      return (
+        <div className="text-center p-6">
+          <div className="flex justify-center mb-4">
+            <AlertTriangle className="h-16 w-16 text-gray-400" />
+          </div>
+          <h2 className="text-xl font-semibold text-gray-700 mb-2">Không có thông tin xác minh</h2>
+          <p className="text-gray-600 mb-6">
+            Chưa có thông tin xác minh nào được tìm thấy cho tài khoản của bạn.
+          </p>
+          <div className="flex justify-center space-x-4">
+            <Link href="/register" className="btn-primary py-2 px-6">
+              Đăng ký xác minh
+            </Link>
+          </div>
+        </div>
+      );
+    }
+
     switch (verificationStatus.status) {
       case 'verified':
         return (
@@ -75,7 +101,7 @@ export default function VerifyPage() {
               Tài khoản của bạn đã được xác minh. Bạn có thể bắt đầu sử dụng đầy đủ tính năng của VShare.
             </p>
             <div className="flex justify-center space-x-4">
-              <Link href="/dashboard" className="btn-primary py-2 px-6 flex items-center">
+              <Link href="/" className="btn-primary py-2 px-6 flex items-center">
                 Đến trang chủ
                 <ArrowRight className="h-4 w-4 ml-2" />
               </Link>
@@ -123,9 +149,15 @@ export default function VerifyPage() {
                   Thông tin xác minh đã được gửi lúc:
                 </p>
                 <p className="text-sm text-gray-700">
-                  {formatDate(verificationStatus.createdAt)}
+                  {verificationStatus ? formatDate(verificationStatus.createdAt) : ''}
                 </p>
               </div>
+            </div>
+            <div className="flex justify-center mt-6">
+              <Link href="/" className="btn-primary py-2 px-6 flex items-center">
+                Xem sản phẩm
+                <ArrowRight className="h-4 w-4 ml-2" />
+              </Link>
             </div>
           </div>
         );
@@ -140,9 +172,17 @@ export default function VerifyPage() {
         <div className="max-w-lg mx-auto">
           <div className="text-center mb-10">
             <h1 className="text-3xl font-bold text-gray-900 mb-4">Trạng thái xác minh</h1>
-            <p className="text-gray-600">
+            <p className="text-gray-600 mb-4">
               Kiểm tra trạng thái xác minh tài khoản của bạn
             </p>
+            <button
+              onClick={fetchVerificationStatus}
+              disabled={isLoading}
+              className="inline-flex items-center px-3 py-2 text-sm text-orange-600 hover:text-orange-700 disabled:opacity-50"
+            >
+              <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+              Làm mới
+            </button>
           </div>
 
           <div className="bg-white rounded-lg shadow-md overflow-hidden">

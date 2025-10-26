@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Camera, Menu, X, Heart, User, Search, MapPin } from 'lucide-react';
 import LocationAutocomplete from './LocationAutocomplete';
+import PersonalDashboard from './PersonalDashboard';
 
 export default function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -171,15 +172,7 @@ export default function Header() {
               </span>
             </button>
             {user ? (
-              <div className="flex items-center space-x-2">
-                <span className="text-sm text-gray-700">Xin chào, {user.name}</span>
-                <button 
-                  onClick={handleLogout}
-                  className="text-sm text-orange-600 hover:text-orange-700"
-                >
-                  Đăng xuất
-                </button>
-              </div>
+              <PersonalDashboard user={user} onLogout={handleLogout} />
             ) : (
               <button onClick={handleLogin} className="btn-primary">
                 Đăng nhập
@@ -234,18 +227,9 @@ export default function Header() {
                   Yêu thích
                 </button>
                 {user ? (
-                  <>
-                    <div className="px-3 py-2 text-gray-700">
-                      Xin chào, {user.name}
-                    </div>
-                    <button 
-                      onClick={handleLogout}
-                      className="flex items-center px-3 py-2 text-orange-600 hover:text-orange-700 transition-colors w-full text-left"
-                    >
-                      <User className="h-5 w-5 mr-2" />
-                      Đăng xuất
-                    </button>
-                  </>
+                  <div className="px-3 py-2">
+                    <PersonalDashboard user={user} onLogout={handleLogout} />
+                  </div>
                 ) : (
                   <button 
                     onClick={handleLogin}

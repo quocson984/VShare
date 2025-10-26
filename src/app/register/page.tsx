@@ -201,6 +201,7 @@ export default function RegisterPage() {
       formData.append('address', personalDataParsed.address);
       formData.append('identityNumber', identityData.identityNumber);
       formData.append('identityFullname', identityData.identityFullname);
+      formData.append('userType', authDataParsed.userType);
 
       // Helper function to convert data URL to File
       const dataURLToFile = async (dataURL: string, filename: string): Promise<File> => {
@@ -801,6 +802,49 @@ export default function RegisterPage() {
                     )}
                   </div>
                 </div>
+
+                {/* Identity Number */}
+                <div>
+                  <label htmlFor="identityNumber" className="block text-sm font-medium text-gray-700 mb-2">
+                    <FileText className="h-4 w-4 inline mr-1" />
+                    Số CCCD/CMND
+                  </label>
+                  <input
+                    id="identityNumber"
+                    name="identityNumber"
+                    type="text"
+                    required
+                    value={identityData.identityNumber}
+                    onChange={(e) => handleInputChange(e, 3)}
+                    className={`input-field ${errors.identityNumber ? 'border-red-500 focus:ring-red-500' : ''}`}
+                    placeholder="Nhập số CCCD/CMND"
+                  />
+                  {errors.identityNumber && (
+                    <p className="mt-1 text-sm text-red-600">{errors.identityNumber}</p>
+                  )}
+                </div>
+
+                {/* Identity Fullname */}
+                <div>
+                  <label htmlFor="identityFullname" className="block text-sm font-medium text-gray-700 mb-2">
+                    <User className="h-4 w-4 inline mr-1" />
+                    Họ tên trên CCCD/CMND
+                  </label>
+                  <input
+                    id="identityFullname"
+                    name="identityFullname"
+                    type="text"
+                    required
+                    value={identityData.identityFullname}
+                    onChange={(e) => handleInputChange(e, 3)}
+                    className={`input-field ${errors.identityFullname ? 'border-red-500 focus:ring-red-500' : ''}`}
+                    placeholder="Nhập họ tên như trên CCCD/CMND"
+                  />
+                  {errors.identityFullname && (
+                    <p className="mt-1 text-sm text-red-600">{errors.identityFullname}</p>
+                  )}
+                </div>
+
                 {/* Nav Buttons */}
                 <div className="flex space-x-4">
                   <button
