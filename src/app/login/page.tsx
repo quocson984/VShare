@@ -68,6 +68,8 @@ export default function LoginPage() {
         // Redirect based on user role
         if (data.user.role === 'admin') {
           window.location.href = '/admin';
+        } else if (data.user.role === 'owner') {
+          window.location.href = '/owner';
         } else {
           window.location.href = '/';
         }
