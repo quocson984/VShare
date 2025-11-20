@@ -70,7 +70,9 @@ export async function GET(request: NextRequest) {
     const sortBy = searchParams.get('sortBy') || 'createdAt';
     const sortOrder = searchParams.get('sortOrder') || 'desc';
 
+    console.log('=== EQUIPMENT SEARCH API ===');
     console.log('Search params:', { query, location, lat, lng, radius, category, brand, minPrice, maxPrice });
+    console.log('Has coordinates?', lat !== 0 && lng !== 0 && radius > 0);
 
     // Build search filter
     const filter: SearchFilter = {};
@@ -114,19 +116,23 @@ export async function GET(request: NextRequest) {
     if (lat && lng && radius && lat !== 0 && lng !== 0 && radius > 0) {
       console.log(`Performing coordinate search: lat=${lat}, lng=${lng}, radius=${radius}km`);
       
-      // Start fresh for coordinate search
-      const coordFilter: SearchFilter = {
-        status: 'available'
-      };
+      // Clear previous location filters
+      delete filter.$or;
+      delete filter.$and;
+      
+      // Start with base filter
+      const coordFilter: SearchFilter = {};
       
       // Keep text search if exists
       if (query) {
-        coordFilter.$or = [
-          { title: { $regex: query, $options: 'i' } },
-          { brand: { $regex: query, $options: 'i' } },
-          { model: { $regex: query, $options: 'i' } },
-          { description: { $regex: query, $options: 'i' } }
-        ];
+        coordFilter.$and = [{
+          $or: [
+            { title: { $regex: query, $options: 'i' } },
+            { brand: { $regex: query, $options: 'i' } },
+            { model: { $regex: query, $options: 'i' } },
+            { description: { $regex: query, $options: 'i' } }
+          ]
+        }];
       }
       
       // Add geospatial search - ensure coordinates exist and are valid
@@ -138,16 +144,6 @@ export async function GET(request: NextRequest) {
           $centerSphere: [[lng, lat], radiusInRadians]
         }
       };
-      
-      // Also add a fallback condition for equipment without coordinates but matching location text
-      if (location) {
-        coordFilter.$or = coordFilter.$or || [];
-        coordFilter.$or.push(
-          { 'location.address': { $regex: location, $options: 'i' } },
-          { 'location.district': { $regex: location, $options: 'i' } },
-          { 'location.city': { $regex: location, $options: 'i' } }
-        );
-      }
       
       Object.assign(filter, coordFilter);
     }
@@ -201,7 +197,7 @@ export async function GET(request: NextRequest) {
             pricePerMonth: 10000000,
             location: {
               coordinates: [106.6820, 10.7629], // Quận 1, TP.HCM
-              address: 'Quận 1, TP.HCM'
+              address: 'Quận 1, Thành phố Hồ Chí Minh'
             },
             owner: {
               name: 'Nguyễn Văn A',
@@ -229,7 +225,7 @@ export async function GET(request: NextRequest) {
             pricePerMonth: 18000000,
             location: {
               coordinates: [106.7314, 10.7473], // Quận 2, TP.HCM
-              address: 'Quận 2, TP.HCM'
+              address: 'Quận 2, Thành phố Hồ Chí Minh'
             },
             owner: {
               name: 'Trần Thị B',
@@ -257,7 +253,7 @@ export async function GET(request: NextRequest) {
             pricePerMonth: 6000000,
             location: {
               coordinates: [106.6840, 10.7756], // Quận 3, TP.HCM
-              address: 'Quận 3, TP.HCM'
+              address: 'Quận 3, Thành phố Hồ Chí Minh'
             },
             owner: {
               name: 'Phạm Văn C',
@@ -269,6 +265,90 @@ export async function GET(request: NextRequest) {
             availability: 'available',
             instantBook: true,
             deliveryOptions: ['pickup'],
+            createdAt: new Date(),
+            updatedAt: new Date()
+          },
+          {
+            id: 'mock-4',
+            title: 'Nikon Z9 Mirrorless Camera',
+            brand: 'Nikon',
+            model: 'Z9',
+            category: 'camera',
+            description: 'Máy ảnh mirrorless flagship với khả năng quay 8K',
+            images: ['https://images.unsplash.com/photo-1606980287723-f2e89c0e7f9c?w=400&h=400&fit=crop'],
+            pricePerDay: 650000,
+            pricePerWeek: 4000000,
+            pricePerMonth: 14000000,
+            location: {
+              coordinates: [106.6956, 10.8545], // Quận 12, TP.HCM
+              address: 'Quận 12, Thành phố Hồ Chí Minh'
+            },
+            owner: {
+              name: 'Lê Văn D',
+              verified: true,
+              badges: ['Verified']
+            },
+            rating: 4.7,
+            reviewCount: 12,
+            availability: 'available',
+            instantBook: true,
+            deliveryOptions: ['pickup'],
+            createdAt: new Date(),
+            updatedAt: new Date()
+          },
+          {
+            id: 'mock-5',
+            title: 'Canon 5D Mark IV',
+            brand: 'Canon',
+            model: '5D Mark IV',
+            category: 'camera',
+            description: 'Máy ảnh DSLR chuyên nghiệp 30.4MP',
+            images: ['https://images.unsplash.com/photo-1606983340126-99ab4feaa64a?w=400&h=400&fit=crop'],
+            pricePerDay: 400000,
+            pricePerWeek: 2500000,
+            pricePerMonth: 8500000,
+            location: {
+              coordinates: [105.8342, 21.0285], // Hoàn Kiếm, Hà Nội
+              address: 'Quận Hoàn Kiếm, Hà Nội'
+            },
+            owner: {
+              name: 'Hoàng Thị E',
+              verified: true,
+              badges: ['Verified']
+            },
+            rating: 4.5,
+            reviewCount: 18,
+            availability: 'available',
+            instantBook: true,
+            deliveryOptions: ['pickup'],
+            createdAt: new Date(),
+            updatedAt: new Date()
+          },
+          {
+            id: 'mock-6',
+            title: 'Sony A7 III Camera Body',
+            brand: 'Sony',
+            model: 'A7 III',
+            category: 'camera',
+            description: 'Máy ảnh full-frame đa năng cho photo và video',
+            images: ['https://images.unsplash.com/photo-1564466809058-bf4114d55352?w=400&h=400&fit=crop'],
+            pricePerDay: 450000,
+            pricePerWeek: 2800000,
+            pricePerMonth: 9500000,
+            location: {
+              coordinates: [105.8019, 21.0245], // Ba Đình, Hà Nội
+              address: 'Quận Ba Đình, Hà Nội'
+            },
+            owner: {
+              name: 'Đỗ Văn F',
+              verified: true,
+              badges: ['Verified']
+            },
+            rating: 4.8,
+            reviewCount: 25,
+            availability: 'available',
+            instantBook: true,
+            deliveryOptions: ['pickup', 'delivery'],
             createdAt: new Date(),
             updatedAt: new Date()
           }
@@ -285,7 +365,27 @@ export async function GET(request: NextRequest) {
           );
         }
         
-        if (location) {
+        // Filter by coordinates if provided (geospatial distance calculation)
+        if (lat && lng && radius && lat !== 0 && lng !== 0 && radius > 0) {
+          filteredMock = filteredMock.filter(item => {
+            const itemLat = item.location.coordinates[1];
+            const itemLng = item.location.coordinates[0];
+            
+            // Calculate distance using Haversine formula
+            const R = 6371; // Earth radius in km
+            const dLat = (itemLat - lat) * Math.PI / 180;
+            const dLng = (itemLng - lng) * Math.PI / 180;
+            const a = 
+              Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+              Math.cos(lat * Math.PI / 180) * Math.cos(itemLat * Math.PI / 180) *
+              Math.sin(dLng / 2) * Math.sin(dLng / 2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            const distance = R * c;
+            
+            return distance <= radius;
+          });
+        } else if (location) {
+          // Fallback to text search if no coordinates
           filteredMock = filteredMock.filter(item =>
             item.location.address.toLowerCase().includes(location.toLowerCase())
           );

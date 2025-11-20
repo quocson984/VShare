@@ -21,9 +21,12 @@ export default function RootLayout({
           integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
           crossOrigin=""
         />
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@placekit/autocomplete-js@2.1.8/dist/placekit-autocomplete.min.css" />
+        <script src="https://cdn.jsdelivr.net/npm/@placekit/autocomplete-js@2.1.8" async></script>
       </head>
       <body className="min-h-screen bg-gray-50">
         {children}
+        
       </body>
     </html>
   );

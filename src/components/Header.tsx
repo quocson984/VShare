@@ -4,13 +4,14 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Camera, Menu, X, Heart, User, Search, MapPin } from 'lucide-react';
-import LocationAutocomplete from './LocationAutocomplete';
+import PlaceKitAutocomplete from './PlaceKitAutocomplete';
 import PersonalDashboard from './PersonalDashboard';
 
 export default function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [location, setLocation] = useState('');
+  const [locationCoords, setLocationCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [showEquipmentDropdown, setShowEquipmentDropdown] = useState(false);
   const [user, setUser] = useState<{id: string, email: string, name: string} | null>(null);
   const router = useRouter();
@@ -62,18 +63,34 @@ export default function Header() {
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     
+    console.log('🔍 Starting search with:', { searchQuery, location, locationCoords });
+    
     const params = new URLSearchParams();
     if (searchQuery.trim()) {
-      params.set('q', searchQuery.trim()); // Changed from 'search' to 'q' to match API
+      params.set('q', searchQuery.trim());
     }
+    
+    // Handle location search
     if (location.trim()) {
       params.set('location', location.trim());
+      
+      // Use stored coordinates from PlaceKit selection
+      if (locationCoords) {
+        params.set('lat', locationCoords.lat.toString());
+        params.set('lng', locationCoords.lng.toString());
+        params.set('radius', '10'); // Default 10km radius
+        console.log('✅ Using PlaceKit coordinates:', locationCoords);
+      } else {
+        console.warn('⚠️ No coordinates - user may have typed manually without selecting from PlaceKit');
+        // Still allow search by location text only
+      }
     }
     
     const queryString = params.toString();
     const url = queryString ? `/equipments?${queryString}` : '/equipments';
     
-    console.log('Searching with params:', { searchQuery, location, url }); // Debug log
+    console.log('🚀 Final URL:', url);
+    console.log('📋 All params:', Object.fromEntries(params));
     router.push(url);
     
     // Close mobile menu if open
@@ -102,15 +119,25 @@ export default function Header() {
                 <div className="relative flex-1">
                   <div className="flex items-center border-r border-gray-200">
                     <MapPin className="h-4 w-4 text-gray-400 ml-3 mr-2" />
-                    <LocationAutocomplete
+                    <PlaceKitAutocomplete
                       value={location}
-                      onChange={setLocation}
+                      onChange={(value) => {
+                        setLocation(value);
+                        // Clear coords if value is empty
+                        if (!value) {
+                          setLocationCoords(null);
+                        }
+                      }}
                       onLocationSelect={(selectedLocation) => {
                         setLocation(selectedLocation.address);
-                        console.log('Selected location:', selectedLocation);
+                        setLocationCoords({
+                          lat: selectedLocation.lat,
+                          lng: selectedLocation.lng
+                        });
+                        console.log('✅ PlaceKit selected location:', selectedLocation);
                       }}
                       placeholder="Chọn địa điểm"
-                      className="bg-transparent border-none text-sm placeholder-gray-500 px-0 mx-[-15px] py-2 "
+                      className="bg-transparent border-none text-sm placeholder-gray-500 focus:outline-none focus:ring-0 px-2 py-2"
                     />
                   </div>
                 </div>

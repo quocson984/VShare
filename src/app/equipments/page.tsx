@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect, useCallback, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useState, useEffect, useCallback, useRef, Suspense } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import Header from '@/components/Header';
 import ProductCard from '@/components/ProductCard';
 import Map from '@/components/Map';
@@ -28,6 +28,7 @@ interface Equipment {
 
 function EquipmentsPage() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const [equipment, setEquipment] = useState<Equipment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -40,10 +41,14 @@ function EquipmentsPage() {
     lng: number;
     address: string;
   } | null>(null);
+  const mapMoveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Get search queries from URL params
   const searchQuery = searchParams.get('q') || '';
   const locationQuery = searchParams.get('location') || '';
+  const latParam = searchParams.get('lat');
+  const lngParam = searchParams.get('lng');
+  const radiusParam = searchParams.get('radius');
 
   // Search function
   const searchEquipment = useCallback(async () => {
@@ -51,8 +56,23 @@ function EquipmentsPage() {
       setLoading(true);
       setError(null);
       
-      // If we have a location query, try to geocode it first to update map center
-      if (locationQuery) {
+      // Use lat/lng from URL params if available
+      if (latParam && lngParam) {
+        const lat = parseFloat(latParam);
+        const lng = parseFloat(lngParam);
+        
+        if (!isNaN(lat) && !isNaN(lng)) {
+          const locationInfo = {
+            lat,
+            lng,
+            address: locationQuery || `${lat}, ${lng}`
+          };
+          setSearchedLocation(locationInfo);
+          setMapCenter([lat, lng]);
+          console.log('Using coordinates from URL:', locationInfo);
+        }
+      } else if (locationQuery) {
+        // Only geocode if no lat/lng provided in URL
         try {
           const geoResponse = await fetch('/api/geocode', {
             method: 'POST',
@@ -81,6 +101,11 @@ function EquipmentsPage() {
       const params = new URLSearchParams();
       if (searchQuery) params.set('q', searchQuery);
       if (locationQuery) params.set('location', locationQuery);
+      
+      // Pass lat/lng/radius to API
+      if (latParam) params.set('lat', latParam);
+      if (lngParam) params.set('lng', lngParam);
+      if (radiusParam) params.set('radius', radiusParam);
       
       // Add sorting
       if (sortBy === 'price-low') {
@@ -153,10 +178,10 @@ function EquipmentsPage() {
     } finally {
       setLoading(false);
     }
-  }, [searchQuery, locationQuery, sortBy]);
+  }, [searchQuery, locationQuery, latParam, lngParam, radiusParam, sortBy]);
 
-  // Search by coordinates (when clicking on map)
-  const searchByCoordinates = useCallback(async (lat: number, lng: number) => {
+  // Search by coordinates (when clicking on map or dragging map)
+  const searchByCoordinates = useCallback(async (lat: number, lng: number, radius: number = 5) => {
     try {
       setLoading(true);
       setError(null);
@@ -181,10 +206,11 @@ function EquipmentsPage() {
       
       // Search equipment near this location
       const params = new URLSearchParams();
+      if (searchQuery) params.set('q', searchQuery);
       params.set('location', locationSearchTerm);
       params.set('lat', lat.toString());
       params.set('lng', lng.toString());
-      params.set('radius', '5'); // 5km radius
+      params.set('radius', radius.toString());
       
       const response = await fetch(`/api/equipment/search?${params.toString()}`);
       const data = await response.json();
@@ -211,9 +237,14 @@ function EquipmentsPage() {
         
         setEquipment(transformedData);
         setMapCenter([lat, lng]);
+        setSearchedLocation({
+          lat,
+          lng,
+          address: locationSearchTerm
+        });
         
         // Show notification about search
-        console.log(`Tìm thấy ${transformedData.length} thiết bị gần vị trí đã chọn`);
+        console.log(`Tìm thấy ${transformedData.length} thiết bị trong bán kính ${radius}km`);
       } else {
         setError(data.message || 'Không tìm thấy thiết bị tại vị trí này');
         setEquipment([]);
@@ -225,7 +256,59 @@ function EquipmentsPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [searchQuery]);
+
+  // Handle map move (drag) with debouncing
+  const handleMapMove = useCallback((lat: number, lng: number, zoom: number) => {
+    // Clear previous timeout
+    if (mapMoveTimeoutRef.current) {
+      clearTimeout(mapMoveTimeoutRef.current);
+    }
+    
+    // Calculate radius based on zoom level
+    const radius = zoom >= 14 ? 3 : zoom >= 12 ? 5 : zoom >= 10 ? 10 : 20;
+    
+    // Set new timeout to search after user stops dragging (500ms for faster response)
+    mapMoveTimeoutRef.current = setTimeout(() => {
+      console.log('Map moved to:', { lat, lng, zoom, radius });
+      
+      // Search immediately for faster response
+      searchByCoordinates(lat, lng, radius);
+      
+      // Update URL in background (non-blocking)
+      fetch('/api/reverse-geocode', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ lat, lng }),
+      })
+        .then(response => response.json())
+        .then(geoData => {
+          let locationName = '';
+          if (geoData.success && geoData.data && geoData.data.length > 0) {
+            const result = geoData.data[0];
+            locationName = result.city || result.district || result.formatted || `${lat},${lng}`;
+          } else {
+            locationName = `${lat},${lng}`;
+          }
+          
+          // Update URL with new location
+          const params = new URLSearchParams();
+          if (searchQuery) params.set('q', searchQuery);
+          params.set('location', locationName);
+          params.set('lat', lat.toString());
+          params.set('lng', lng.toString());
+          params.set('radius', radius.toString());
+          
+          // Update URL without page reload
+          router.replace(`/equipments?${params.toString()}`, { scroll: false });
+        })
+        .catch(error => {
+          console.error('Error updating location:', error);
+        });
+    }, 500);
+  }, [searchByCoordinates, searchQuery, router]);
 
   // Initial search
   useEffect(() => {
@@ -259,11 +342,23 @@ function EquipmentsPage() {
       <div className="flex h-[90vh]">
         
         {/* Left Panel - Equipment List with its own scrollbar */}
-        <div className="w-full lg:w-1/2 overflow-y-auto bg-white">
-          <div className="inline-flex items-center">
-                  <Search className="h-4 w-4 mr-1" />
-                  {equipment.length} thiết bị được tìm thấy
+        <div className="w-full lg:w-1/2 overflow-y-auto bg-white relative">
+          {/* Results count with loading indicator */}
+          <div className="sticky top-0 bg-white z-10 px-4 lg:px-6 py-3 border-b border-gray-200">
+            <div className="flex items-center justify-between">
+              <div className="inline-flex items-center">
+                <Search className="h-4 w-4 mr-2" />
+                <span className="font-medium">{equipment.length} thiết bị được tìm thấy</span>
+              </div>
+              {loading && (
+                <div className="flex items-center text-sm text-gray-500">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-orange-500 mr-2"></div>
+                  Đang tìm...
                 </div>
+              )}
+            </div>
+          </div>
+          
           <div className="p-4 lg:p-6">
             {loading ? (
               <div className="flex items-center justify-center py-20">
@@ -321,6 +416,7 @@ function EquipmentsPage() {
                       onClick={() => {
                         const expandedParams = new URLSearchParams();
                         if (searchQuery) expandedParams.set('q', searchQuery);
+                        if (locationQuery) expandedParams.set('location', locationQuery);
                         expandedParams.set('lat', searchedLocation.lat.toString());
                         expandedParams.set('lng', searchedLocation.lng.toString());
                         expandedParams.set('radius', '20'); // Expand to 20km
@@ -355,7 +451,8 @@ function EquipmentsPage() {
               zoom={12}
               height="100%"
               className="h-full w-full"
-              onLocationSelect={searchByCoordinates}
+              onLocationSelect={(lat, lng) => searchByCoordinates(lat, lng, 5)}
+              onMapMove={handleMapMove}
             />
             
             {/* Map overlay with search info */}

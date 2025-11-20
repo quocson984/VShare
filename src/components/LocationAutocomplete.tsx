@@ -91,11 +91,7 @@ export default function LocationAutocomplete({
 
   // Handle suggestion selection
   const handleSuggestionClick = (suggestion: LocationSuggestion) => {
-    onChange(suggestion.formatted);
-    setShowSuggestions(false);
-    setSuggestions([]);
-
-    // Notify parent component about selected location
+    // Notify parent component about selected location FIRST
     if (onLocationSelect) {
       onLocationSelect({
         lat: suggestion.lat,
@@ -103,6 +99,11 @@ export default function LocationAutocomplete({
         address: suggestion.formatted
       });
     }
+    
+    // Then update the input value
+    onChange(suggestion.formatted);
+    setShowSuggestions(false);
+    setSuggestions([]);
   };
 
   // Handle click outside to close suggestions

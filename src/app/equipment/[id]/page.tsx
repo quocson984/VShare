@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Header from '@/components/Header';
 import Map from '@/components/Map';
+import DateRangePicker from '@/components/DateRangePicker';
+import ProductCard from '@/components/ProductCard';
 import { 
   Calendar, 
   Star, 
@@ -59,28 +61,64 @@ export default function EquipmentDetailPage() {
   const [liked, setLiked] = useState(false);
   
   // Booking state
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
+  const [dateRange, setDateRange] = useState<{ from: Date | null; to: Date | null }>({
+    from: null,
+    to: null
+  });
+  const [bookedDates, setBookedDates] = useState<Date[]>([]);
   const [totalDays, setTotalDays] = useState(1);
   const [totalPrice, setTotalPrice] = useState(0);
   const [showBookingForm, setShowBookingForm] = useState(false);
+  
+  // Similar equipment
+  const [similarEquipment, setSimilarEquipment] = useState<any[]>([]);
 
-  // Fetch equipment details
+  // Fetch equipment details, booked dates, and similar equipment
   useEffect(() => {
-    const fetchEquipment = async () => {
+    const fetchData = async () => {
       try {
         setLoading(true);
-        const response = await fetch(`/api/equipment/${params.id}`);
-        const data = await response.json();
+        
+        // Fetch equipment details
+        const [equipmentRes, bookedDatesRes, similarRes] = await Promise.all([
+          fetch(`/api/equipment/${params.id}`),
+          fetch(`/api/equipment/${params.id}/bookings`),
+          fetch(`/api/equipment/${params.id}/similar`)
+        ]);
+        
+        const equipmentData = await equipmentRes.json();
+        const bookedDatesData = await bookedDatesRes.json();
+        const similarData = await similarRes.json();
 
-        if (data.success) {
-          setEquipment(data.data);
-          setTotalPrice(data.data.pricePerDay);
+        if (equipmentData.success) {
+          setEquipment(equipmentData.data);
+          setTotalPrice(equipmentData.data.pricePerDay);
         } else {
-          setError(data.message || 'Không tìm thấy thiết bị');
+          setError(equipmentData.message || 'Không tìm thấy thiết bị');
         }
+        
+        // Process booked dates
+        if (bookedDatesData.success) {
+          const dates: Date[] = [];
+          bookedDatesData.data.forEach((booking: { start: string; end: string }) => {
+            const start = new Date(booking.start);
+            const end = new Date(booking.end);
+            
+            // Add all dates in the range
+            for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+              dates.push(new Date(d));
+            }
+          });
+          setBookedDates(dates);
+        }
+        
+        // Set similar equipment
+        if (similarData.success) {
+          setSimilarEquipment(similarData.data);
+        }
+        
       } catch (err) {
-        console.error('Error fetching equipment:', err);
+        console.error('Error fetching data:', err);
         setError('Lỗi kết nối server');
       } finally {
         setLoading(false);
@@ -88,26 +126,24 @@ export default function EquipmentDetailPage() {
     };
 
     if (params.id) {
-      fetchEquipment();
+      fetchData();
     }
   }, [params.id]);
 
   // Calculate total price when dates change
   useEffect(() => {
-    if (startDate && endDate && equipment) {
-      const start = new Date(startDate);
-      const end = new Date(endDate);
-      const days = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+    if (dateRange.from && dateRange.to && equipment) {
+      const days = Math.ceil((dateRange.to.getTime() - dateRange.from.getTime()) / (1000 * 60 * 60 * 24)) + 1;
       
       if (days > 0) {
         setTotalDays(days);
         setTotalPrice(days * equipment.pricePerDay);
       }
     }
-  }, [startDate, endDate, equipment]);
+  }, [dateRange, equipment]);
 
   const handleBooking = () => {
-    if (!startDate || !endDate) {
+    if (!dateRange.from || !dateRange.to) {
       alert('Vui lòng chọn ngày bắt đầu và kết thúc');
       return;
     }
@@ -334,34 +370,19 @@ export default function EquipmentDetailPage() {
               </div>
 
               <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Ngày bắt đầu
-                    </label>
-                    <input
-                      type="date"
-                      value={startDate}
-                      onChange={(e) => setStartDate(e.target.value)}
-                      min={new Date().toISOString().split('T')[0]}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Ngày kết thúc
-                    </label>
-                    <input
-                      type="date"
-                      value={endDate}
-                      onChange={(e) => setEndDate(e.target.value)}
-                      min={startDate || new Date().toISOString().split('T')[0]}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                    />
-                  </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Chọn ngày thuê
+                  </label>
+                  <DateRangePicker
+                    value={dateRange}
+                    onChange={setDateRange}
+                    disabledDates={bookedDates}
+                    minDate={new Date()}
+                  />
                 </div>
 
-                {startDate && endDate && (
+                {dateRange.from && dateRange.to && (
                   <div className="bg-gray-50 p-3 rounded-lg">
                     <div className="flex justify-between text-sm">
                       <span>{equipment.pricePerDay.toLocaleString('vi-VN')}đ x {totalDays} ngày</span>
@@ -381,8 +402,8 @@ export default function EquipmentDetailPage() {
 
                 <button
                   onClick={handleBooking}
-                  disabled={!startDate || !endDate || equipment.availability !== 'available'}
-                  className="w-full bg-orange-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-orange-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
+                  disabled={!dateRange.from || !dateRange.to || equipment.availability !== 'available'}
+                  className="w-full bg-orange-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-orange-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
                 >
                   {equipment.availability !== 'available' ? 'Không khả dụng' : 'Đặt thuê ngay'}
                 </button>
@@ -395,6 +416,36 @@ export default function EquipmentDetailPage() {
             </div>
           </div>
         </div>
+
+        {/* Similar Equipment Section */}
+        {similarEquipment.length > 0 && (
+          <div className="mt-12 border-t border-gray-200 pt-8">
+            <h2 className="text-2xl font-bold text-gray-900 mb-6">
+              Thiết bị tương tự gần đây
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {similarEquipment.map((item) => (
+                <div
+                  key={item.id}
+                  onClick={() => router.push(`/equipment/${item.id}`)}
+                  className="cursor-pointer hover:shadow-lg transition-shadow rounded-lg border border-gray-200 overflow-hidden"
+                >
+                  <ProductCard
+                    id={item.id}
+                    name={item.title}
+                    price={item.pricePerDay}
+                    image={item.image}
+                    rating={item.rating}
+                    reviewCount={item.reviewCount}
+                    location={item.location}
+                    category="camera"
+                    available={true}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Booking Modal */}
@@ -408,8 +459,8 @@ export default function EquipmentDetailPage() {
                 <h4 className="font-medium">{equipment.title}</h4>
                 <p className="text-sm text-gray-600">{equipment.location?.address}</p>
                 <div className="mt-2 text-sm">
-                  <div>Từ: {new Date(startDate).toLocaleDateString('vi-VN')}</div>
-                  <div>Đến: {new Date(endDate).toLocaleDateString('vi-VN')}</div>
+                  <div>Từ: {dateRange.from?.toLocaleDateString('vi-VN')}</div>
+                  <div>Đến: {dateRange.to?.toLocaleDateString('vi-VN')}</div>
                   <div className="font-medium mt-1">
                     Tổng: {(totalPrice + Math.round(totalPrice * 0.05)).toLocaleString('vi-VN')}đ
                   </div>

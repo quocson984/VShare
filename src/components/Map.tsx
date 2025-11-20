@@ -17,6 +17,7 @@ interface MapProps {
     available?: boolean;
   }>;
   onLocationSelect?: (lat: number, lng: number) => void;
+  onMapMove?: (lat: number, lng: number, zoom: number) => void;
   height?: string;
   className?: string;
 }
@@ -27,6 +28,7 @@ function LeafletMap({
   zoom = 12, 
   markers = [], 
   onLocationSelect,
+  onMapMove,
   height = '400px',
   className = '' 
 }: MapProps) {
@@ -158,6 +160,30 @@ function LeafletMap({
       }
     };
   }, [onLocationSelect, isClient]);
+
+  // Handle map movement (drag end)
+  useEffect(() => {
+    if (!mapInstance.current || !onMapMove || !isClient) return;
+
+    const moveEndHandler = () => {
+      if (mapInstance.current) {
+        const center = mapInstance.current.getCenter();
+        const currentZoom = mapInstance.current.getZoom();
+        onMapMove(center.lat, center.lng, currentZoom);
+      }
+    };
+
+    // Trigger on drag end and zoom end
+    mapInstance.current.on('dragend', moveEndHandler);
+    mapInstance.current.on('zoomend', moveEndHandler);
+
+    return () => {
+      if (mapInstance.current) {
+        mapInstance.current.off('dragend', moveEndHandler);
+        mapInstance.current.off('zoomend', moveEndHandler);
+      }
+    };
+  }, [onMapMove, isClient]);
 
   // Handle markers
   useEffect(() => {
