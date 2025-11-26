@@ -1,6 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectMongoDB } from '@/lib/mongodb';
 import { EquipmentModel } from '@/models/equipment';
+import type { EquipmentType } from '@/models/equipment';
+
+const FALLBACK_OWNER_ID = '000000000000000000000001';
+
+type EquipmentDetail = EquipmentType & {
+  rating?: number;
+  reviewCount?: number;
+  availability?: string;
+  policies?: {
+    cancellation?: string;
+    usage?: string;
+    damage?: string;
+    deposit?: number;
+  };
+  specifications?: Record<string, string>;
+};
 
 export async function GET(
   request: NextRequest,
@@ -9,7 +25,7 @@ export async function GET(
   try {
     await connectMongoDB();
 
-    const equipment = await EquipmentModel.findById(params.id).lean();
+    const equipment = (await EquipmentModel.findById(params.id).lean()) as EquipmentDetail | null;
 
     if (!equipment) {
       // Return mock equipment if not found in database
@@ -31,8 +47,11 @@ export async function GET(
           address: 'Quận 1, TP.HCM',
           coordinates: [106.6820, 10.7629]
         },
+        ownerId: FALLBACK_OWNER_ID,
+        replacementPrice: 2800000,
+        deposit: 550000,
         owner: {
-          _id: 'mock-owner-1',
+          _id: FALLBACK_OWNER_ID,
           name: 'Nguyễn Văn A',
           avatar: null,
           rating: 4.9,
@@ -61,7 +80,7 @@ export async function GET(
 
     // Transform the data for frontend
     const transformedEquipment = {
-      _id: equipment._id.toString(),
+      _id: String(equipment._id ?? params.id),
       title: equipment.title,
       description: equipment.description,
       category: equipment.category,
@@ -74,8 +93,11 @@ export async function GET(
         address: 'TP.HCM',
         coordinates: [106.6820, 10.7629]
       },
+      ownerId: equipment.ownerId?.toString() || FALLBACK_OWNER_ID,
+      replacementPrice: equipment.replacementPrice || equipment.pricePerDay * 10,
+      deposit: equipment.deposit ?? equipment.policies?.deposit ?? 0,
       owner: {
-        _id: 'mock-owner',
+        _id: equipment.ownerId?.toString() || FALLBACK_OWNER_ID,
         name: 'Equipment Owner',
         avatar: null,
         rating: 4.8,

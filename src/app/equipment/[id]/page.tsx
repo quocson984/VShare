@@ -2,23 +2,19 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
 import Header from '@/components/Header';
 import Map from '@/components/Map';
 import DateRangePicker from '@/components/DateRangePicker';
 import ProductCard from '@/components/ProductCard';
 import { 
-  Calendar, 
   Star, 
   MapPin, 
-  Clock, 
   Shield, 
-  Camera,
   ArrowLeft,
   Heart,
   Share2,
-  User,
-  DollarSign,
-  CheckCircle
+  User
 } from 'lucide-react';
 
 interface Equipment {
@@ -49,7 +45,84 @@ interface Equipment {
     usage: string;
     damage: string;
   };
+  ownerId?: string;
+  replacementPrice?: number;
+  deposit?: number;
 }
+
+interface InsuranceOption {
+  id: string;
+  name: string;
+  description?: string;
+  minCoverage?: number;
+  maxCoverage?: number;
+  status?: string;
+}
+
+type BookingRecord = {
+  id: string;
+  startDate: string;
+  endDate: string;
+  basePrice: number;
+  serviceFee: number;
+  insuranceFee: number;
+  totalPrice: number;
+  status: string;
+  checkinTime?: string;
+  checkoutTime?: string;
+  checkinImages?: string[];
+  checkoutImages?: string[];
+  insuranceId?: string;
+  quantity: number;
+  notes?: string;
+};
+
+const DEFAULT_INSURANCE_OPTION: InsuranceOption = {
+  id: 'none',
+  name: 'Không chọn bảo hiểm',
+  description: 'Rủi ro do người thuê chịu hoàn toàn',
+  minCoverage: 0,
+  maxCoverage: 0,
+  status: 'active'
+};
+
+const FALLBACK_RENTER_ID = '000000000000000000000002';
+
+const statusLabels: Record<string, string> = {
+  pending: 'Đang chờ xử lý',
+  confirmed: 'Đã xác nhận',
+  reviewing: 'Đang kiểm tra',
+  completed: 'Hoàn tất',
+  failed: 'Thất bại'
+};
+
+const normalizeBooking = (booking: any): BookingRecord => ({
+  id: booking._id?.toString() ?? booking.id,
+  startDate: booking.startDate,
+  endDate: booking.endDate,
+  basePrice: booking.basePrice ?? 0,
+  serviceFee: booking.serviceFee ?? 0,
+  insuranceFee: booking.insuranceFee ?? 0,
+  totalPrice: booking.totalPrice ?? 0,
+  status: booking.status ?? 'confirmed',
+  checkinTime: booking.checkinTime,
+  checkoutTime: booking.checkoutTime,
+  checkinImages: booking.checkinImages,
+  checkoutImages: booking.checkoutImages,
+  insuranceId: booking.insuranceId,
+  quantity: booking.quantity ?? 1,
+  notes: booking.notes
+});
+
+const formatCurrency = (value: number) => `${value.toLocaleString('vi-VN')}đ`;
+
+const estimateInsuranceFee = (option: InsuranceOption | null, days: number) => {
+  if (!option || option.id === 'none') {
+    return 0;
+  }
+  const coverage = ((option.minCoverage ?? 0) + (option.maxCoverage ?? 0)) / 2;
+  return Math.max(15000, Math.round(coverage * 0.0015 * Math.max(1, days)));
+};
 
 export default function EquipmentDetailPage() {
   const params = useParams();
@@ -72,6 +145,11 @@ export default function EquipmentDetailPage() {
   
   // Similar equipment
   const [similarEquipment, setSimilarEquipment] = useState<any[]>([]);
+  const [insuranceOptions, setInsuranceOptions] = useState<InsuranceOption[]>([DEFAULT_INSURANCE_OPTION]);
+  const [selectedInsuranceId, setSelectedInsuranceId] = useState(DEFAULT_INSURANCE_OPTION.id);
+  const [insuranceFee, setInsuranceFee] = useState(0);
+  const [bookingRecord, setBookingRecord] = useState<BookingRecord | null>(null);
+  const [bookingSubmitting, setBookingSubmitting] = useState(false);
 
   // Fetch equipment details, booked dates, and similar equipment
   useEffect(() => {
@@ -130,6 +208,32 @@ export default function EquipmentDetailPage() {
     }
   }, [params.id]);
 
+  useEffect(() => {
+    const controller = new AbortController();
+    const loadInsurance = async () => {
+      try {
+        const response = await fetch('/api/insurance', { signal: controller.signal });
+        const data = await response.json();
+        if (data.success && Array.isArray(data.data)) {
+          const normalized = data.data.map((item: any, index: number) => ({
+            id: item._id?.toString() ?? item.id ?? `insurance-${index}`,
+            name: item.name,
+            description: item.description,
+            minCoverage: item.minCoverage,
+            maxCoverage: item.maxCoverage,
+            status: item.status
+          }));
+          setInsuranceOptions([DEFAULT_INSURANCE_OPTION, ...normalized]);
+        }
+      } catch (err) {
+        console.error('Unable to load insurance packages:', err);
+      }
+    };
+
+    loadInsurance();
+    return () => controller.abort();
+  }, []);
+
   // Calculate total price when dates change
   useEffect(() => {
     if (dateRange.from && dateRange.to && equipment) {
@@ -142,6 +246,11 @@ export default function EquipmentDetailPage() {
     }
   }, [dateRange, equipment]);
 
+  useEffect(() => {
+    const selectedOption = insuranceOptions.find((opt) => opt.id === selectedInsuranceId) ?? null;
+    setInsuranceFee(estimateInsuranceFee(selectedOption, Math.max(1, totalDays)));
+  }, [selectedInsuranceId, insuranceOptions, totalDays]);
+
   const handleBooking = () => {
     if (!dateRange.from || !dateRange.to) {
       alert('Vui lòng chọn ngày bắt đầu và kết thúc');
@@ -149,6 +258,59 @@ export default function EquipmentDetailPage() {
     }
     setShowBookingForm(true);
   };
+
+  const handleBookingConfirm = async () => {
+    if (!equipment || !dateRange.from || !dateRange.to) {
+      return;
+    }
+
+    setBookingSubmitting(true);
+    try {
+      const startDate = new Date(dateRange.from).toISOString();
+      const endDate = new Date(dateRange.to).toISOString();
+      const ownerCandidate = equipment.ownerId || equipment.owner._id;
+      const ownerId = /^[0-9a-fA-F]{24}$/.test(ownerCandidate || '') ? ownerCandidate! : '000000000000000000000001';
+      const payload: Record<string, any> = {
+        equipmentId: equipment._id,
+        startDate,
+        endDate,
+        renterId: FALLBACK_RENTER_ID,
+        ownerId,
+        quantity: 1,
+        notes: `Đặt thuê từ trang ${equipment.title}`
+      };
+
+      if (selectedInsuranceId !== DEFAULT_INSURANCE_OPTION.id) {
+        payload.insuranceId = selectedInsuranceId;
+      }
+
+      const response = await fetch('/api/bookings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await response.json();
+      if (!data.success) {
+        throw new Error(data.message || 'Không thể tạo đơn thuê.');
+      }
+
+      setBookingRecord(normalizeBooking(data.data));
+      const start = new Date(dateRange.from);
+      const end = new Date(dateRange.to);
+      const newDates: Date[] = [];
+      for (let current = new Date(start); current <= end; current.setDate(current.getDate() + 1)) {
+        newDates.push(new Date(current));
+      }
+      setBookedDates((prev) => [...prev, ...newDates]);
+      setShowBookingForm(false);
+    } catch (err) {
+      console.error('Booking API error:', err);
+      alert(err instanceof Error ? err.message : 'Không thể tạo đơn thuê');
+    } finally {
+      setBookingSubmitting(false);
+    }
+  };
+
 
   if (loading) {
     return (
@@ -178,6 +340,9 @@ export default function EquipmentDetailPage() {
       </div>
     );
   }
+
+  const serviceFee = Math.round(totalPrice * 0.05);
+  const finalTotal = totalPrice + serviceFee + insuranceFee;
 
   const mapMarkers = equipment.location?.coordinates ? [{
     id: equipment._id,
@@ -381,21 +546,62 @@ export default function EquipmentDetailPage() {
                     minDate={new Date()}
                   />
                 </div>
+                <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm text-sm text-gray-700">
+                  <p className="font-medium text-gray-900 mb-3">Gói bảo hiểm</p>
+                  <div className="space-y-3">
+                    {insuranceOptions.map((option) => {
+                      const optionFee = estimateInsuranceFee(option, Math.max(1, totalDays));
+                      return (
+                        <label
+                          key={option.id}
+                          className={`flex items-start space-x-3 rounded-lg p-3 border ${selectedInsuranceId === option.id ? 'border-orange-400 bg-orange-50' : 'border-gray-200 bg-white'} cursor-pointer`}
+                        >
+                          <input
+                            type="radio"
+                            name="insurance"
+                            value={option.id}
+                            checked={selectedInsuranceId === option.id}
+                            onChange={() => setSelectedInsuranceId(option.id)}
+                            className="mt-1"
+                          />
+                          <div className="flex-1">
+                            <div className="flex items-center justify-between">
+                              <span className="font-medium">{option.name}</span>
+                              <span className="text-orange-600 font-semibold">
+                                {option.id === DEFAULT_INSURANCE_OPTION.id ? 'Miễn phí' : formatCurrency(optionFee)}
+                              </span>
+                            </div>
+                            <p className="text-xs text-gray-500 mt-1">{option.description}</p>
+                            {typeof option.minCoverage === 'number' && typeof option.maxCoverage === 'number' && option.id !== DEFAULT_INSURANCE_OPTION.id && (
+                              <p className="text-xs text-gray-400 mt-1">
+                                Phạm vi bảo hiểm: {formatCurrency(option.minCoverage)} – {formatCurrency(option.maxCoverage)}
+                              </p>
+                            )}
+                          </div>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
 
                 {dateRange.from && dateRange.to && (
                   <div className="bg-gray-50 p-3 rounded-lg">
                     <div className="flex justify-between text-sm">
                       <span>{equipment.pricePerDay.toLocaleString('vi-VN')}đ x {totalDays} ngày</span>
-                      <span>{(equipment.pricePerDay * totalDays).toLocaleString('vi-VN')}đ</span>
+                      <span>{formatCurrency(totalPrice)}</span>
                     </div>
                     <div className="flex justify-between text-sm mt-1">
                       <span>Phí dịch vụ</span>
-                      <span>{Math.round(totalPrice * 0.05).toLocaleString('vi-VN')}đ</span>
+                      <span>{formatCurrency(serviceFee)}</span>
+                    </div>
+                    <div className="flex justify-between text-sm mt-1">
+                      <span>Bảo hiểm</span>
+                      <span>{formatCurrency(insuranceFee)}</span>
                     </div>
                     <hr className="my-2" />
                     <div className="flex justify-between font-medium">
                       <span>Tổng cộng</span>
-                      <span>{(totalPrice + Math.round(totalPrice * 0.05)).toLocaleString('vi-VN')}đ</span>
+                      <span>{formatCurrency(finalTotal)}</span>
                     </div>
                   </div>
                 )}
@@ -416,6 +622,42 @@ export default function EquipmentDetailPage() {
             </div>
           </div>
         </div>
+
+        {bookingRecord && (
+          <div className="mt-12 border border-gray-200 rounded-lg bg-gray-50 p-6 space-y-4">
+            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+              <div>
+                <p className="text-sm text-gray-500">Đơn thuê đã tạo</p>
+                <p className="text-lg font-semibold text-gray-900">
+                  {formatCurrency(bookingRecord.totalPrice ?? 0)}
+                </p>
+                <p className="text-xs text-gray-500 mt-1">
+                  {new Date(bookingRecord.startDate).toLocaleDateString('vi-VN')} →{' '}
+                  {new Date(bookingRecord.endDate).toLocaleDateString('vi-VN')}
+                </p>
+                <p className="text-xs text-gray-500">
+                  Phí dịch vụ {formatCurrency(bookingRecord.serviceFee ?? 0)} · Bảo hiểm{' '}
+                  {formatCurrency(bookingRecord.insuranceFee ?? 0)}
+                </p>
+              </div>
+              <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center">
+                <span className="inline-flex items-center px-3 py-1 text-xs font-semibold rounded-full bg-orange-100 text-orange-700">
+                  {statusLabels[bookingRecord.status] ?? 'Đang xử lý'}
+                </span>
+                <Link
+                  href="/my-equipment"
+                  className="inline-flex items-center justify-center px-4 py-2 rounded-lg bg-orange-600 text-white text-sm font-medium hover:bg-orange-700"
+                >
+                  Theo dõi & check-in
+                </Link>
+              </div>
+            </div>
+            <p className="text-sm text-gray-600">
+              Đơn thuê này được quản lý tại mục <span className="font-semibold">Thiết bị của tôi</span>.
+              Bạn có thể kiểm tra tiến trình, upload hình ảnh, và ghi nhận check-in/check-out ở trang đó bất cứ lúc nào.
+            </p>
+          </div>
+        )}
 
         {/* Similar Equipment Section */}
         {similarEquipment.length > 0 && (
@@ -462,7 +704,7 @@ export default function EquipmentDetailPage() {
                   <div>Từ: {dateRange.from?.toLocaleDateString('vi-VN')}</div>
                   <div>Đến: {dateRange.to?.toLocaleDateString('vi-VN')}</div>
                   <div className="font-medium mt-1">
-                    Tổng: {(totalPrice + Math.round(totalPrice * 0.05)).toLocaleString('vi-VN')}đ
+                    Tổng: {formatCurrency(finalTotal)}
                   </div>
                 </div>
               </div>
@@ -475,13 +717,11 @@ export default function EquipmentDetailPage() {
                   Hủy
                 </button>
                 <button
-                  onClick={() => {
-                    alert('Tính năng thanh toán sẽ được triển khai sau!');
-                    setShowBookingForm(false);
-                  }}
-                  className="flex-1 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700"
+                  onClick={handleBookingConfirm}
+                  className="flex-1 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:bg-orange-300 disabled:cursor-not-allowed"
+                  disabled={bookingSubmitting}
                 >
-                  Xác nhận
+                  {bookingSubmitting ? 'Đang tạo đơn...' : 'Xác nhận'}
                 </button>
               </div>
             </div>

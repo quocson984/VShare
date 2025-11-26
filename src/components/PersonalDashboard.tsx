@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { User, CheckCircle, Clock, AlertTriangle, ChevronDown, Settings, LogOut } from 'lucide-react';
+import { User, CheckCircle, Clock, AlertTriangle, ChevronDown, Camera, LogOut } from 'lucide-react';
 
 interface UserData {
   id: string;
@@ -194,11 +194,11 @@ export default function PersonalDashboard({ user, onLogout }: PersonalDashboardP
           <div className="p-4">
             <div className="space-y-2">
               <Link
-                href="/profile"
+                href="/my-equipment"
                 className="flex items-center space-x-2 px-3 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
               >
-                <Settings className="h-4 w-4" />
-                <span className="text-sm">Cài đặt tài khoản</span>
+                <Camera className="h-4 w-4" />
+                <span className="text-sm">Thiết bị của tôi</span>
               </Link>
               
               <button
