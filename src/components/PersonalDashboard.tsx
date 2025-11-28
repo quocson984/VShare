@@ -134,59 +134,10 @@ export default function PersonalDashboard({ user, onLogout }: PersonalDashboardP
                 <p className="text-sm text-gray-500">{user.email}</p>
                 <div className="flex items-center mt-1">
                   <span className="text-xs px-2 py-1 bg-blue-100 text-blue-800 rounded-full">
-                    {user.role === 'renter' ? 'Người thuê' : user.role === 'owner' ? 'Người cho thuê' : user.role}
+                    {user.role === 'admin' ? 'Quản trị viên' : user.role === 'moderator' ? 'Kiểm duyệt viên' : 'Người dùng'}
                   </span>
                 </div>
               </div>
-            </div>
-          </div>
-
-          {/* Verification Status */}
-          <div className="p-4 border-b border-gray-200">
-            <h4 className="font-medium text-gray-900 mb-3">Trạng thái xác minh</h4>
-            {isLoading ? (
-              <div className="flex items-center space-x-2">
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-orange-500"></div>
-                <span className="text-sm text-gray-500">Đang tải...</span>
-              </div>
-            ) : (
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  {getStatusIcon()}
-                  <span className={`text-sm font-medium ${getStatusColor()}`}>
-                    {getStatusText()}
-                  </span>
-                </div>
-                {verificationData && (
-                  <span className="text-xs text-gray-500">
-                    {formatDate(verificationData.createdAt)}
-                  </span>
-                )}
-              </div>
-            )}
-            
-            {verificationData?.status === 'pending' && (
-              <div className="mt-2">
-                <Link 
-                  href="/verify"
-                  className="text-sm text-orange-600 hover:text-orange-700"
-                >
-                  Xem chi tiết →
-                </Link>
-              </div>
-            )}
-          </div>
-
-          {/* Wallet Balance */}
-          <div className="p-4 border-b border-gray-200">
-            <h4 className="font-medium text-gray-900 mb-2">Ví của bạn</h4>
-            <div className="flex items-center justify-between">
-              <span className="text-lg font-semibold text-gray-900">
-                {user.wallet?.toLocaleString('vi-VN') || 0} VNĐ
-              </span>
-              <span className="text-xs px-2 py-1 bg-green-100 text-green-800 rounded-full">
-                {user.credit === 'trusted' ? 'Tin cậy' : 'Hạn chế'}
-              </span>
             </div>
           </div>
 
@@ -194,11 +145,20 @@ export default function PersonalDashboard({ user, onLogout }: PersonalDashboardP
           <div className="p-4">
             <div className="space-y-2">
               <Link
-                href="/my-equipment"
-                className="flex items-center space-x-2 px-3 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                href="/dashboard/equipments"
+                className="flex items-center space-x-2 px-3 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors w-full"
+                onClick={() => setIsOpen(false)}
               >
                 <Camera className="h-4 w-4" />
-                <span className="text-sm">Thiết bị của tôi</span>
+                <span className="text-sm">Thiết bị</span>
+              </Link>
+              <Link
+                href="/dashboard/profile"
+                className="flex items-center space-x-2 px-3 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors w-full"
+                onClick={() => setIsOpen(false)}
+              >
+                <User className="h-4 w-4" />
+                <span className="text-sm">Hồ sơ</span>
               </Link>
               
               <button

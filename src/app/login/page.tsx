@@ -66,10 +66,8 @@ export default function LoginPage() {
         localStorage.setItem('accountId', data.user.id);
         
         // Redirect based on user role
-        if (data.user.role === 'admin') {
+        if (data.user.role === 'admin' || data.user.role === 'moderator') {
           window.location.href = '/admin';
-        } else if (data.user.role === 'owner') {
-          window.location.href = '/owner';
         } else {
           window.location.href = '/';
         }
@@ -224,15 +222,6 @@ export default function LoginPage() {
             </form>
           </div>
 
-          {/* Additional Info */}
-          <div className="text-center">
-            <p className="text-sm text-gray-600">
-              Chưa có tài khoản?{' '}
-              <Link href="/register" className="font-medium text-orange-600 hover:text-orange-500">
-                Đăng ký ngay
-              </Link>
-            </p>
-          </div>
         </div>
       </div>
 

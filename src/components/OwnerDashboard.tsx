@@ -226,9 +226,9 @@ export default function OwnerDashboard() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
+      {/* Header with Search and Actions */}
       <div className="bg-white rounded-lg shadow-sm p-6">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-6">
           <div className="flex items-center space-x-3">
             <Package className="h-8 w-8 text-orange-600" />
             <div>
@@ -236,47 +236,29 @@ export default function OwnerDashboard() {
               <p className="text-gray-600">Quản lý thiết bị cho thuê của bạn</p>
             </div>
           </div>
-          <div className="flex space-x-3">
-            <button
-              onClick={() => fetchEquipment()}
-              disabled={isLoading}
-              className="flex items-center space-x-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:opacity-50"
-            >
-              <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-              <span>Làm mới</span>
-            </button>
-            <button
-              onClick={() => setShowUploadForm(true)}
-              className="flex items-center space-x-2 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700"
-            >
-              <Plus className="h-4 w-4" />
-              <span>Thêm thiết bị</span>
-            </button>
-          </div>
+          <button
+            onClick={() => setShowUploadForm(true)}
+            className="flex items-center space-x-2 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700"
+          >
+            <Plus className="h-4 w-4" />
+            <span>Thêm thiết bị</span>
+          </button>
         </div>
 
-        {/* Status Filter */}
-        <div className="flex space-x-2">
-          {[
-            { key: 'all', label: 'Tất cả', count: counts.total },
-            { key: 'pending', label: 'Chờ duyệt', count: counts.pending },
-            { key: 'approved', label: 'Đã duyệt', count: counts.approved },
-            { key: 'rejected', label: 'Từ chối', count: counts.rejected },
-            { key: 'available', label: 'Có sẵn', count: counts.available },
-            { key: 'unavailable', label: 'Không có sẵn', count: counts.unavailable }
-          ].map(({ key, label, count }) => (
-            <button
-              key={key}
-              onClick={() => handleStatusChange(key as any)}
-              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                currentStatus === key
-                  ? 'bg-orange-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              {label} ({count})
-            </button>
-          ))}
+        {/* Search Bar and Filter */}
+        <div className="flex items-center space-x-4">
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Tìm kiếm thiết bị..."
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+            />
+          </div>
+          <button className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
+            <Filter className="h-5 w-5 text-gray-600" />
+            <span>Lọc</span>
+          </button>
         </div>
       </div>
 
@@ -315,6 +297,12 @@ export default function OwnerDashboard() {
                       Thiết bị
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Hãng
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Số lượng
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Danh mục
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -322,12 +310,6 @@ export default function OwnerDashboard() {
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Trạng thái
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Duyệt
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Hành động
                     </th>
                   </tr>
                 </thead>
@@ -350,11 +332,21 @@ export default function OwnerDashboard() {
                             </div>
                           )}
                           <div>
-                            <div className="text-sm font-medium text-gray-900">{item.title}</div>
-                            <div className="text-sm text-gray-500">{item.brand} {item.model}</div>
-                            <div className="text-sm text-gray-500">SL: {item.quantity}</div>
+                            <a 
+                              href={`/equipment/${item.id}`}
+                              className="text-sm font-medium text-orange-600 hover:text-orange-800 hover:underline"
+                            >
+                              {item.title}
+                            </a>
+                            <div className="text-sm text-gray-500">{item.model}</div>
                           </div>
                         </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {item.brand}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {item.quantity}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
@@ -370,53 +362,8 @@ export default function OwnerDashboard() {
                             ? 'bg-green-100 text-green-800' 
                             : 'bg-gray-100 text-gray-800'
                         }`}>
-                          {item.status}
+                          {item.status === 'available' ? 'Có sẵn' : 'Không có sẵn'}
                         </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center space-x-2">
-                          {getStatusIcon(item.approvalStatus)}
-                          <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(item.approvalStatus)}`}>
-                            {item.approvalStatus}
-                          </span>
-                        </div>
-                        {item.approvalNotes && (
-                          <div className="text-xs text-gray-500 mt-1 max-w-xs truncate">
-                            {item.approvalNotes}
-                          </div>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <div className="flex space-x-2">
-                          <button
-                            onClick={() => setSelectedEquipment(item)}
-                            className="text-orange-600 hover:text-orange-900"
-                          >
-                            <Eye className="h-4 w-4" />
-                          </button>
-                          {item.approvalStatus === 'approved' && (
-                            <button
-                              onClick={() => handleStatusToggle(item.id, item.status === 'available' ? 'unavailable' : 'available')}
-                              disabled={isProcessing}
-                              className={`px-2 py-1 text-xs rounded ${
-                                item.status === 'available'
-                                  ? 'bg-red-100 text-red-700 hover:bg-red-200'
-                                  : 'bg-green-100 text-green-700 hover:bg-green-200'
-                              } disabled:opacity-50`}
-                            >
-                              {item.status === 'available' ? 'Tắt' : 'Bật'}
-                            </button>
-                          )}
-                          {item.approvalStatus !== 'approved' && (
-                            <button
-                              onClick={() => handleDelete(item.id)}
-                              disabled={isProcessing}
-                              className="text-red-600 hover:text-red-900 disabled:opacity-50"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
-                          )}
-                        </div>
                       </td>
                     </tr>
                   ))}

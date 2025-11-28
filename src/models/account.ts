@@ -68,8 +68,8 @@ const AccountSchema = new Schema({
     },
     role: { 
         type: String, 
-        enum: ['renter', 'owner', 'moderator', 'admin'],
-        default: 'renter'
+        enum: ['user', 'moderator', 'admin'],
+        default: 'user'
     },
     credit: { 
         type: String, 

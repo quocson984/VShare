@@ -22,7 +22,6 @@ export default function RegisterPage() {
     email: '',
     password: '',
     confirmPassword: '',
-    userType: 'renter',
     agreeToTerms: false
   });
 
@@ -201,7 +200,6 @@ export default function RegisterPage() {
       formData.append('address', personalDataParsed.address);
       formData.append('identityNumber', identityData.identityNumber);
       formData.append('identityFullname', identityData.identityFullname);
-      formData.append('userType', authDataParsed.userType);
 
       // Helper function to convert data URL to File
       const dataURLToFile = async (dataURL: string, filename: string): Promise<File> => {
@@ -377,48 +375,6 @@ export default function RegisterPage() {
                   <div className="p-4 bg-red-100 text-red-700 rounded-md">{errors.submit}</div>
                 )}
 
-                {/* User Type Selection */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-3">
-                    Loại tài khoản
-                  </label>
-                  <div className="grid grid-cols-2 gap-3">
-                    <label className="relative cursor-pointer">
-                      <input
-                        type="radio"
-                        name="userType"
-                        value="renter"
-                        checked={authData.userType === 'renter'}
-                        onChange={(e) => handleInputChange(e, 1)}
-                        className="sr-only"
-                      />
-                      <div className={`p-4 border-2 rounded-lg text-center transition-colors ${authData.userType === 'renter'
-                        ? 'border-orange-600 bg-orange-50'
-                        : 'border-gray-300 hover:border-gray-400'
-                        }`}>
-                        <div className="font-medium">Người thuê</div>
-                        <div className="text-sm text-gray-600">Thuê thiết bị</div>
-                      </div>
-                    </label>
-                    <label className="relative cursor-pointer">
-                      <input
-                        type="radio"
-                        name="userType"
-                        value="owner"
-                        checked={authData.userType === 'owner'}
-                        onChange={(e) => handleInputChange(e, 1)}
-                        className="sr-only"
-                      />
-                      <div className={`p-4 border-2 rounded-lg text-center transition-colors ${authData.userType === 'owner'
-                        ? 'border-orange-600 bg-orange-50'
-                        : 'border-gray-300 hover:border-gray-400'
-                        }`}>
-                        <div className="font-medium">Người cho thuê</div>
-                        <div className="text-sm text-gray-600">Cho thuê thiết bị</div>
-                      </div>
-                    </label>
-                  </div>
-                </div>
 
                 {/* Email Field */}
                 <div>

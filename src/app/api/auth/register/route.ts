@@ -24,7 +24,6 @@ export async function POST(request: NextRequest) {
     const selfie = formData.get('selfie') as File;
     const identityNumber = formData.get('identityNumber') as string;
     const identityFullname = formData.get('identityFullname') as string;
-    const userType = formData.get('userType') as string;
 
     // Validate required fields
     if (!email || !password || !fullname) {
@@ -194,7 +193,7 @@ export async function POST(request: NextRequest) {
       identityNumber: identityNumber || null,
       identityFullname: identityFullname || null,
       identityImages: [frontCccdUrl, backCccdUrl, selfieUrl].filter(Boolean),
-      role: userType || 'renter',
+      role: 'user', // All new accounts are 'user' and can rent or list equipment
       status: 'unverified',
       credit: 'trusted',
       wallet: 0,

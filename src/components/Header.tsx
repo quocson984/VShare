@@ -7,7 +7,11 @@ import { Camera, Menu, X, Heart, User, Search, MapPin } from 'lucide-react';
 import PlaceKitAutocomplete from './PlaceKitAutocomplete';
 import PersonalDashboard from './PersonalDashboard';
 
-export default function Header() {
+interface HeaderProps {
+  hideSearch?: boolean;
+}
+
+export default function Header({ hideSearch = false }: HeaderProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [location, setLocation] = useState('');
@@ -111,93 +115,97 @@ export default function Header() {
           </Link>
 
           {/* Search Bar */}
-          <div className="hidden md:flex flex-1 max-w-4xl mx-[15vw]">
-            <form onSubmit={handleSearch} className="flex w-full">
-              {/* Main Search Bar */}
-              <div className="flex bg-gray-50 rounded-lg border border-gray-200 flex-1">
-                {/* Location Input */}
-                <div className="relative flex-1">
-                  <div className="flex items-center border-r border-gray-200">
-                    <MapPin className="h-4 w-4 text-gray-400 ml-3 mr-2" />
-                    <PlaceKitAutocomplete
-                      value={location}
-                      onChange={(value) => {
-                        setLocation(value);
-                        // Clear coords if value is empty
-                        if (!value) {
-                          setLocationCoords(null);
-                        }
-                      }}
-                      onLocationSelect={(selectedLocation) => {
-                        setLocation(selectedLocation.address);
-                        setLocationCoords({
-                          lat: selectedLocation.lat,
-                          lng: selectedLocation.lng
-                        });
-                        console.log('✅ PlaceKit selected location:', selectedLocation);
-                      }}
-                      placeholder="Chọn địa điểm"
-                      className="bg-transparent border-none text-sm placeholder-gray-500 focus:outline-none focus:ring-0 px-2 py-2"
-                    />
-                  </div>
-                </div>
-
-                {/* Equipment Search Input */}
-                <div className="relative flex-1">
-                  <div className="flex items-center px-3 py-2">
-                    <input
-                      type="text"
-                      placeholder="Nhập tên thiết bị..."
-                      value={searchQuery}
-                      onChange={(e) => {
-                        setSearchQuery(e.target.value);
-                        setShowEquipmentDropdown(true);
-                      }}
-                      onFocus={() => setShowEquipmentDropdown(true)}
-                      onBlur={() => setTimeout(() => setShowEquipmentDropdown(false), 200)}
-                      className="bg-transparent border-none outline-none text-sm flex-1 placeholder-gray-500"
-                    />
-                  </div>
-                  
-                  {/* Equipment Dropdown */}
-                  {showEquipmentDropdown && searchQuery && filteredEquipment.length > 0 && (
-                    <div className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-md shadow-lg z-50 max-h-60 overflow-y-auto">
-                      {filteredEquipment.slice(0, 6).map((equipment, index) => (
-                        <button
-                          key={index}
-                          type="button"
-                          onClick={() => {
-                            setSearchQuery(equipment);
-                            setShowEquipmentDropdown(false);
-                          }}
-                          className="w-full text-left px-3 py-2 hover:bg-gray-50 text-sm"
-                        >
-                          {equipment}
-                        </button>
-                      ))}
+          {!hideSearch && (
+            <div className="hidden md:flex flex-1 max-w-4xl mx-[15vw]">
+              <form onSubmit={handleSearch} className="flex w-full">
+                {/* Main Search Bar */}
+                <div className="flex bg-gray-50 rounded-lg border border-gray-200 flex-1">
+                  {/* Location Input */}
+                  <div className="relative flex-1">
+                    <div className="flex items-center border-r border-gray-200">
+                      <MapPin className="h-4 w-4 text-gray-400 ml-3 mr-2" />
+                      <PlaceKitAutocomplete
+                        value={location}
+                        onChange={(value) => {
+                          setLocation(value);
+                          // Clear coords if value is empty
+                          if (!value) {
+                            setLocationCoords(null);
+                          }
+                        }}
+                        onLocationSelect={(selectedLocation) => {
+                          setLocation(selectedLocation.address);
+                          setLocationCoords({
+                            lat: selectedLocation.lat,
+                            lng: selectedLocation.lng
+                          });
+                          console.log('✅ PlaceKit selected location:', selectedLocation);
+                        }}
+                        placeholder="Chọn địa điểm"
+                        className="bg-transparent border-none text-sm placeholder-gray-500 focus:outline-none focus:ring-0 px-2 py-2"
+                      />
                     </div>
-                  )}
-                </div>
+                  </div>
 
-                {/* Search Button */}
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-orange-600 text-white rounded-r-lg hover:bg-orange-700 transition-colors"
-                >
-                  <Search className="h-4 w-4" />
-                </button>
-              </div>
-            </form>
-          </div>
+                  {/* Equipment Search Input */}
+                  <div className="relative flex-1">
+                    <div className="flex items-center px-3 py-2">
+                      <input
+                        type="text"
+                        placeholder="Nhập tên thiết bị..."
+                        value={searchQuery}
+                        onChange={(e) => {
+                          setSearchQuery(e.target.value);
+                          setShowEquipmentDropdown(true);
+                        }}
+                        onFocus={() => setShowEquipmentDropdown(true)}
+                        onBlur={() => setTimeout(() => setShowEquipmentDropdown(false), 200)}
+                        className="bg-transparent border-none outline-none text-sm flex-1 placeholder-gray-500"
+                      />
+                    </div>
+                    
+                    {/* Equipment Dropdown */}
+                    {showEquipmentDropdown && searchQuery && filteredEquipment.length > 0 && (
+                      <div className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-md shadow-lg z-50 max-h-60 overflow-y-auto">
+                        {filteredEquipment.slice(0, 6).map((equipment, index) => (
+                          <button
+                            key={index}
+                            type="button"
+                            onClick={() => {
+                              setSearchQuery(equipment);
+                              setShowEquipmentDropdown(false);
+                            }}
+                            className="w-full text-left px-3 py-2 hover:bg-gray-50 text-sm"
+                          >
+                            {equipment}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Search Button */}
+                  <button
+                    type="submit"
+                    className="px-4 py-2 bg-orange-600 text-white rounded-r-lg hover:bg-orange-700 transition-colors"
+                  >
+                    <Search className="h-4 w-4" />
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
 
           {/* Desktop Actions */}
           <div className="hidden md:flex items-center space-x-4 flex-shrink-0">
-            <button className="relative p-2 text-gray-700 hover:text-orange-600 transition-colors">
-              <Heart className="h-6 w-6" />
-              <span className="absolute -top-1 -right-1 bg-orange-600 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                0
-              </span>
-            </button>
+            {!hideSearch && (
+              <button className="relative p-2 text-gray-700 hover:text-orange-600 transition-colors">
+                <Heart className="h-6 w-6" />
+                <span className="absolute -top-1 -right-1 bg-orange-600 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                  0
+                </span>
+              </button>
+            )}
             {user ? (
               <PersonalDashboard user={user} onLogout={handleLogout} />
             ) : (

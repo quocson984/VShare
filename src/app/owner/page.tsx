@@ -12,17 +12,12 @@ export default function OwnerPage() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Check if user is logged in and has owner role
+    // Check if user is logged in (all users can access owner dashboard to list equipment)
     const savedUser = localStorage.getItem('user');
     if (savedUser) {
       try {
         const userData = JSON.parse(savedUser);
-        if (userData.role === 'owner') {
-          setUser(userData);
-        } else {
-          // Redirect non-owners to home page
-          router.push('/');
-        }
+        setUser(userData);
       } catch (e) {
         console.error('Error parsing user data:', e);
         router.push('/login');
