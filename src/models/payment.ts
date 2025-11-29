@@ -1,6 +1,7 @@
 import mongoose, { Document, Schema, InferSchemaType } from 'mongoose';
 
 const PaymentSchema = new Schema({
+    ref: String,
     bookingId: { 
         type: mongoose.Schema.Types.ObjectId, 
         ref: 'Booking',
@@ -20,11 +21,6 @@ const PaymentSchema = new Schema({
         type: String, 
         enum: ['pending', 'completed', 'failed'], 
         default: 'pending' 
-    },
-    method: { 
-        type: String, 
-        enum: ['banking', 'wallet'], 
-        required: [true, 'Payment method is required']
     },
     gatewayTransactionId: String
 }, {
