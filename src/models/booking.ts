@@ -11,6 +11,9 @@ const BookingSchema = new Schema({
         required: [true, 'Quantity is required'],
         min: [1, 'Quantity must be at least 1']
     },
+    serialNumbers: {
+        type: [String],
+    },
     renterId: { 
         type: mongoose.Schema.Types.ObjectId, 
         ref: 'Account',

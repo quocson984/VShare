@@ -21,6 +21,15 @@ const PayoutSchema = new Schema({
         ref: 'Booking', 
         required: [true, 'Booking ID is required']
     },
+    incidentId: { 
+        type: mongoose.Schema.Types.ObjectId, 
+        ref: 'Incident'
+    },
+    images: [String],
+    notes: { 
+        type: String,
+        maxlength: [500, 'Notes cannot exceed 500 characters']
+    }
 }, {
     timestamps: true
 });

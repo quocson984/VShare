@@ -16,6 +16,9 @@ const EquipmentSchema = new Schema({
         type: String,
         trim: true
     },
+    serialNumbers: {
+        type: [String],
+    },
     description: { 
         type: String,
         maxlength: [2000, 'Description cannot exceed 2000 characters']
@@ -63,15 +66,6 @@ const EquipmentSchema = new Schema({
         type: String, 
         enum: ['available', 'unavailable'], 
         default: 'available' 
-    },
-    approvalStatus: { 
-        type: String, 
-        enum: ['pending', 'approved', 'rejected'], 
-        default: 'pending' 
-    },
-    approvalNotes: { 
-        type: String,
-        maxlength: [500, 'Approval notes cannot exceed 500 characters']
     },
     ownerId: { 
         type: mongoose.Schema.Types.ObjectId, 

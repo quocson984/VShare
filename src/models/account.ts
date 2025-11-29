@@ -61,11 +61,6 @@ const AccountSchema = new Schema({
         type: String,
         maxlength: [500, 'Bio cannot exceed 500 characters']
     },
-    wallet: { 
-        type: Number, 
-        default: 0,
-        min: [0, 'Wallet balance cannot be negative']
-    },
     role: { 
         type: String, 
         enum: ['user', 'moderator', 'admin'],
