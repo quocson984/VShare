@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectMongoDB } from '@/lib/mongodb';
 import { BookingModel } from '@/models/booking';
+import { AccountModel } from '@/models/account';
 
 export async function GET(
   request: NextRequest,
@@ -10,14 +11,47 @@ export async function GET(
     await connectMongoDB();
 
     const equipmentId = params.id;
+    const { searchParams } = new URL(request.url);
+    const detailView = searchParams.get('detailed');
 
-    // Find all confirmed bookings for this equipment
+    // If detailed view is requested (for owner dashboard)
+    if (detailView === 'true') {
+      const bookings = await BookingModel.find({
+        equipmentId: equipmentId
+      })
+        .sort({ createdAt: -1 })
+        .lean();
+
+      // Populate renter information
+      const bookingsWithRenter = await Promise.all(
+        bookings.map(async (booking) => {
+          const renter = await AccountModel.findById(booking.renterId).select('firstName lastName email');
+          return {
+            id: booking._id.toString(),
+            renterId: booking.renterId,
+            renterName: renter ? `${renter.firstName} ${renter.lastName}` : 'Unknown',
+            renterEmail: renter?.email || '',
+            startDate: booking.startDate,
+            endDate: booking.endDate,
+            totalPrice: booking.totalPrice,
+            status: booking.status,
+            createdAt: booking.createdAt
+          };
+        })
+      );
+
+      return NextResponse.json({
+        success: true,
+        data: bookingsWithRenter
+      });
+    }
+
+    // Default view - just return booked date ranges
     const bookings = await BookingModel.find({
       equipmentId: equipmentId,
-      status: { $in: ['confirmed', 'pending'] }
+      status: { $in: ['confirmed', 'pending', 'active'] }
     }).select('startDate endDate');
 
-    // Return booked date ranges
     const bookedDates = bookings.map(booking => ({
       start: booking.startDate,
       end: booking.endDate

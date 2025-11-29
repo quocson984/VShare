@@ -17,6 +17,7 @@ import {
   Search
 } from 'lucide-react';
 import Image from 'next/image';
+import Link from 'next/link';
 import EquipmentUploadForm from './EquipmentUploadForm';
 
 interface Equipment {
@@ -332,12 +333,12 @@ export default function OwnerDashboard() {
                             </div>
                           )}
                           <div>
-                            <a 
-                              href={`/equipment/${item.id}`}
+                            <Link 
+                              href={`/dashboard/equipments/${item.id}`}
                               className="text-sm font-medium text-orange-600 hover:text-orange-800 hover:underline"
                             >
                               {item.title}
-                            </a>
+                            </Link>
                             <div className="text-sm text-gray-500">{item.model}</div>
                           </div>
                         </div>

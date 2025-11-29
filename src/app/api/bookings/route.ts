@@ -3,9 +3,83 @@ import { connectMongoDB } from '@/lib/mongodb';
 import { BookingModel } from '@/models/booking';
 import { EquipmentModel } from '@/models/equipment';
 import { InsuranceModel } from '@/models/insurance';
+import { AccountModel } from '@/models/account';
 
 const FALLBACK_RENTER_ID = '000000000000000000000002';
 const FALLBACK_OWNER_ID = '000000000000000000000001';
+
+export async function GET(req: NextRequest) {
+  try {
+    await connectMongoDB();
+
+    const searchParams = req.nextUrl.searchParams;
+    const renterId = searchParams.get('renterId');
+    const ownerId = searchParams.get('ownerId');
+
+    if (!renterId && !ownerId) {
+      return NextResponse.json(
+        { success: false, error: 'renterId or ownerId is required' },
+        { status: 400 }
+      );
+    }
+
+    // Build query filter
+    const filter: { renterId?: string; ownerId?: string } = {};
+    if (renterId) filter.renterId = renterId;
+    if (ownerId) filter.ownerId = ownerId;
+
+    // Fetch bookings
+    const bookings = await BookingModel.find(filter)
+      .sort({ createdAt: -1 })
+      .lean();
+
+    // Enrich bookings with equipment and account details
+    const enrichedBookings = await Promise.all(
+      bookings.map(async (booking) => {
+        // Get equipment details
+        const equipment = await EquipmentModel.findById(booking.equipmentId).lean();
+        
+        // Get counterparty name
+        let counterpartyName = '';
+        if (renterId) {
+          // If filtering by renterId, get owner name
+          const owner = await AccountModel.findById(booking.ownerId).lean();
+          counterpartyName = owner?.fullName || 'Unknown';
+        } else if (ownerId) {
+          // If filtering by ownerId, get renter name
+          const renter = await AccountModel.findById(booking.renterId).lean();
+          counterpartyName = renter?.fullName || 'Unknown';
+        }
+
+        return {
+          id: booking._id.toString(),
+          equipmentId: booking.equipmentId,
+          equipmentTitle: equipment?.title || 'Unknown Equipment',
+          equipmentImages: equipment?.images || [],
+          startDate: booking.startDate,
+          endDate: booking.endDate,
+          quantity: booking.quantity || 1,
+          totalPrice: booking.totalPrice,
+          status: booking.status,
+          createdAt: booking.createdAt,
+          ...(renterId ? { ownerName: counterpartyName } : {}),
+          ...(ownerId ? { renterName: counterpartyName } : {})
+        };
+      })
+    );
+
+    return NextResponse.json({
+      success: true,
+      data: enrichedBookings
+    });
+  } catch (error) {
+    console.error('Error fetching bookings:', error);
+    return NextResponse.json(
+      { success: false, error: 'Failed to fetch bookings' },
+      { status: 500 }
+    );
+  }
+}
 
 export async function POST(request: NextRequest) {
   try {

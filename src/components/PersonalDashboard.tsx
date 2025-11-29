@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { User, CheckCircle, Clock, AlertTriangle, ChevronDown, Camera, LogOut } from 'lucide-react';
+import { User, CheckCircle, Clock, AlertTriangle, ChevronDown, Camera, LogOut, Package, CreditCard } from 'lucide-react';
 
 interface UserData {
   id: string;
@@ -151,6 +151,22 @@ export default function PersonalDashboard({ user, onLogout }: PersonalDashboardP
               >
                 <Camera className="h-4 w-4" />
                 <span className="text-sm">Thiết bị</span>
+              </Link>
+              <Link
+                href="/dashboard/rentals"
+                className="flex items-center space-x-2 px-3 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors w-full"
+                onClick={() => setIsOpen(false)}
+              >
+                <Package className="h-4 w-4" />
+                <span className="text-sm">Đơn thuê</span>
+              </Link>
+              <Link
+                href="/dashboard/transactions"
+                className="flex items-center space-x-2 px-3 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors w-full"
+                onClick={() => setIsOpen(false)}
+              >
+                <CreditCard className="h-4 w-4" />
+                <span className="text-sm">Giao dịch</span>
               </Link>
               <Link
                 href="/dashboard/profile"
