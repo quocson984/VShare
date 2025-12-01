@@ -18,7 +18,6 @@ import {
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
-import EquipmentUploadForm from './EquipmentUploadForm';
 
 interface Equipment {
   id: string;
@@ -57,8 +56,22 @@ interface StatusCounts {
   unavailable: number;
 }
 
+interface Toast {
+  id: number;
+  message: string;
+  type: 'success' | 'error' | 'info';
+}
+
+interface ConfirmDialog {
+  isOpen: boolean;
+  title: string;
+  message: string;
+  onConfirm: () => void;
+}
+
 export default function OwnerDashboard() {
   const [equipment, setEquipment] = useState<Equipment[]>([]);
+  const [filteredEquipment, setFilteredEquipment] = useState<Equipment[]>([]);
   const [pagination, setPagination] = useState<PaginationData | null>(null);
   const [counts, setCounts] = useState<StatusCounts>({
     total: 0,
@@ -72,9 +85,48 @@ export default function OwnerDashboard() {
   const [error, setError] = useState('');
   const [currentStatus, setCurrentStatus] = useState<'all' | 'pending' | 'approved' | 'rejected' | 'available' | 'unavailable'>('all');
   const [currentPage, setCurrentPage] = useState(1);
-  const [showUploadForm, setShowUploadForm] = useState(false);
   const [selectedEquipment, setSelectedEquipment] = useState<Equipment | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [toasts, setToasts] = useState<Toast[]>([]);
+  const [confirmDialog, setConfirmDialog] = useState<ConfirmDialog>({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => {}
+  });
+
+  const showToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
+    const id = Date.now();
+    setToasts(prev => [...prev, { id, message, type }]);
+    setTimeout(() => {
+      setToasts(prev => prev.filter(t => t.id !== id));
+    }, 3000);
+  };
+
+  const showConfirm = (title: string, message: string, onConfirm: () => void) => {
+    setConfirmDialog({ isOpen: true, title, message, onConfirm });
+  };
+
+  const closeConfirm = () => {
+    setConfirmDialog({ isOpen: false, title: '', message: '', onConfirm: () => {} });
+  };
+
+  const handleSearch = (query: string) => {
+    setSearchQuery(query);
+    if (!query.trim()) {
+      setFilteredEquipment(equipment);
+      return;
+    }
+    
+    const lowercaseQuery = query.toLowerCase();
+    const filtered = equipment.filter(item =>
+      item.title.toLowerCase().includes(lowercaseQuery) ||
+      item.brand.toLowerCase().includes(lowercaseQuery) ||
+      item.category.toLowerCase().includes(lowercaseQuery)
+    );
+    setFilteredEquipment(filtered);
+  };
 
   const fetchEquipment = async (status: string = currentStatus, page: number = currentPage) => {
     setIsLoading(true);
@@ -92,6 +144,7 @@ export default function OwnerDashboard() {
       
       if (data.success) {
         setEquipment(data.data.equipment);
+        setFilteredEquipment(data.data.equipment);
         setPagination(data.data.pagination);
         setCounts(data.data.counts);
       } else {
@@ -154,35 +207,38 @@ export default function OwnerDashboard() {
   };
 
   const handleDelete = async (equipmentId: string) => {
-    if (!confirm('Bạn có chắc chắn muốn xóa thiết bị này?')) {
-      return;
-    }
+    showConfirm(
+      'Xóa thiết bị',
+      'Bạn có chắc chắn muốn xóa thiết bị này?',
+      async () => {
+        closeConfirm();
+        setIsProcessing(true);
+        
+        try {
+          const accountId = localStorage.getItem('accountId');
+          if (!accountId) {
+            throw new Error('Người dùng chưa đăng nhập');
+          }
 
-    setIsProcessing(true);
-    
-    try {
-      const accountId = localStorage.getItem('accountId');
-      if (!accountId) {
-        throw new Error('Người dùng chưa đăng nhập');
+          const response = await fetch(`/api/equipment/owner?equipmentId=${equipmentId}&ownerId=${accountId}`, {
+            method: 'DELETE'
+          });
+
+          const data = await response.json();
+          
+          if (data.success) {
+            await fetchEquipment();
+            showToast('Thiết bị đã được xóa thành công', 'success');
+          } else {
+            showToast('Lỗi: ' + data.message, 'error');
+          }
+        } catch (err: any) {
+          showToast('Lỗi: ' + err.message, 'error');
+        } finally {
+          setIsProcessing(false);
+        }
       }
-
-      const response = await fetch(`/api/equipment/owner?equipmentId=${equipmentId}&ownerId=${accountId}`, {
-        method: 'DELETE'
-      });
-
-      const data = await response.json();
-      
-      if (data.success) {
-        await fetchEquipment();
-        alert('Thiết bị đã được xóa thành công');
-      } else {
-        alert('Lỗi: ' + data.message);
-      }
-    } catch (err: any) {
-      alert('Lỗi: ' + err.message);
-    } finally {
-      setIsProcessing(false);
-    }
+    );
   };
 
   const getStatusIcon = (status: string) => {
@@ -237,13 +293,13 @@ export default function OwnerDashboard() {
               <p className="text-gray-600">Quản lý thiết bị cho thuê của bạn</p>
             </div>
           </div>
-          <button
-            onClick={() => setShowUploadForm(true)}
+          <Link
+            href="/dashboard/equipments/new"
             className="flex items-center space-x-2 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700"
           >
             <Plus className="h-4 w-4" />
             <span>Thêm thiết bị</span>
-          </button>
+          </Link>
         </div>
 
         {/* Search Bar and Filter */}
@@ -253,6 +309,8 @@ export default function OwnerDashboard() {
             <input
               type="text"
               placeholder="Tìm kiếm thiết bị..."
+              value={searchQuery}
+              onChange={(e) => handleSearch(e.target.value)}
               className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
             />
           </div>
@@ -277,16 +335,16 @@ export default function OwnerDashboard() {
             </div>
             <p className="text-red-600">{error}</p>
           </div>
-        ) : equipment.length === 0 ? (
+        ) : filteredEquipment.length === 0 ? (
           <div className="p-8 text-center">
             <Package className="h-12 w-12 text-gray-400 mx-auto mb-4" />
             <p className="text-gray-600">Không tìm thấy thiết bị</p>
-            <button
-              onClick={() => setShowUploadForm(true)}
-              className="mt-4 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700"
+            <Link
+              href="/dashboard/equipments/new"
+              className="inline-block mt-4 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700"
             >
               Thêm thiết bị đầu tiên
-            </button>
+            </Link>
           </div>
         ) : (
           <>
@@ -315,7 +373,7 @@ export default function OwnerDashboard() {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {equipment.map((item) => (
+                  {filteredEquipment.map((item) => (
                     <tr key={item.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
@@ -423,31 +481,6 @@ export default function OwnerDashboard() {
         )}
       </div>
 
-      {/* Upload Form Modal */}
-      {showUploadForm && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-20 mx-auto p-5 border w-11/12 max-w-6xl shadow-lg rounded-md bg-white">
-            <div className="mt-3">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-medium text-gray-900">
-                  Tải lên thiết bị mới
-                </h3>
-                <button
-                  onClick={() => setShowUploadForm(false)}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  <XCircle className="h-6 w-6" />
-                </button>
-              </div>
-              <EquipmentUploadForm onSuccess={() => {
-                setShowUploadForm(false);
-                fetchEquipment();
-              }} />
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Equipment Detail Modal */}
       {selectedEquipment && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
@@ -496,18 +529,22 @@ export default function OwnerDashboard() {
 
                 <div>
                   <h4 className="font-medium text-gray-900 mb-2">Hình ảnh</h4>
-                  <div className="grid grid-cols-2 gap-4">
-                    {selectedEquipment.images.map((image, index) => (
-                      <Image
-                        key={index}
-                        src={image}
-                        alt={`${selectedEquipment.title} ${index + 1}`}
-                        width={200}
-                        height={150}
-                        className="rounded-lg object-cover"
-                      />
-                    ))}
-                  </div>
+                  {selectedEquipment.images && selectedEquipment.images.length > 0 ? (
+                    <div className="grid grid-cols-2 gap-4">
+                      {selectedEquipment.images.map((image, index) => (
+                        <Image
+                          key={index}
+                          src={image}
+                          alt={`${selectedEquipment.title} ${index + 1}`}
+                          width={200}
+                          height={150}
+                          className="rounded-lg object-cover"
+                        />
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-gray-500 text-sm">Chưa có hình ảnh</div>
+                  )}
                 </div>
               </div>
 
@@ -519,6 +556,61 @@ export default function OwnerDashboard() {
                   Đóng
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Toast Notifications */}
+      <div className="fixed bottom-4 right-4 space-y-2 z-50">
+        {toasts.map((toast) => (
+          <div
+            key={toast.id}
+            className={`min-w-[300px] px-4 py-3 rounded-lg shadow-lg text-white transform transition-all duration-300 ${
+              toast.type === 'success' 
+                ? 'bg-green-500' 
+                : toast.type === 'error' 
+                ? 'bg-red-500' 
+                : 'bg-blue-500'
+            }`}
+          >
+            <div className="flex items-center justify-between">
+              <span>{toast.message}</span>
+              <button
+                onClick={() => setToasts(toasts.filter(t => t.id !== toast.id))}
+                className="ml-4 text-white/80 hover:text-white"
+              >
+                ×
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Confirm Dialog */}
+      {confirmDialog.isOpen && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
+          <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              {confirmDialog.title}
+            </h3>
+            <p className="text-gray-600 mb-6">{confirmDialog.message}</p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={closeConfirm}
+                className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+              >
+                Hủy
+              </button>
+              <button
+                onClick={() => {
+                  confirmDialog.onConfirm();
+                  closeConfirm();
+                }}
+                className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
+              >
+                Xác nhận
+              </button>
             </div>
           </div>
         </div>

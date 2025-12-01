@@ -12,10 +12,10 @@ const EquipmentSchema = new Schema({
         type: String,
         trim: true
     },
-    model: { 
-        type: String,
-        trim: true
-    },
+    // model: { 
+    //     type: String,
+    //     trim: true
+    // },
     serialNumbers: {
         type: [String],
     },
@@ -34,7 +34,7 @@ const EquipmentSchema = new Schema({
         required: [true, 'Quantity is required'],
         min: [1, 'Quantity must be at least 1']
     },
-    location: LocationSchema,
+    // location: LocationSchema,
     specs: [{
         name: { type: String, required: true },
         value: { type: String, required: true }
@@ -57,11 +57,11 @@ const EquipmentSchema = new Schema({
         required: [true, 'Replacement price is required'],
         min: [0, 'Price cannot be negative']
     },
-    deposit: { 
-        type: Number,
-        default: 0,
-        min: [0, 'Deposit cannot be negative']
-    },
+    // deposit: { 
+    //     type: Number,
+    //     default: 0,
+    //     min: [0, 'Deposit cannot be negative']
+    // },
     status: { 
         type: String, 
         enum: ['available', 'unavailable'], 

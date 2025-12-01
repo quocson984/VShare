@@ -12,17 +12,32 @@ const PaymentSchema = new Schema({
         ref: 'Account',
         required: [true, 'Renter ID is required']
     },
+    ownerId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Account'
+    },
     amount: { 
         type: Number, 
         required: [true, 'Amount is required'],
         min: [0, 'Amount cannot be negative']
     },
+    content: {
+        type: String,
+        required: [true, 'Payment content is required']
+    },
     status: { 
         type: String, 
-        enum: ['pending', 'completed', 'failed'], 
+        enum: ['pending', 'paid', 'completed', 'failed'], 
         default: 'pending' 
     },
-    gatewayTransactionId: String
+    method: {
+        type: String,
+        enum: ['bank_transfer', 'e_wallet', 'cash'],
+        default: 'bank_transfer'
+    },
+    txnId: String,
+    gatewayTransactionId: String,
+    paidAt: Date
 }, {
     timestamps: true
 });

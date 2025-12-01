@@ -27,7 +27,7 @@ export async function GET(
 
     const equipment = (await EquipmentModel.findById(params.id).lean()) as EquipmentDetail | null;
 
-    if (!equipment) {
+    if (!equipment || equipment.status === 'unavailable') {
       // Return mock equipment if not found in database
       const mockEquipment = {
         _id: params.id,
@@ -82,19 +82,29 @@ export async function GET(
     const transformedEquipment = {
       _id: String(equipment._id ?? params.id),
       title: equipment.title,
+      brand: equipment.brand,
       description: equipment.description,
       category: equipment.category,
+      quantity: equipment.quantity || 1,
+      serialNumbers: equipment.serialNumbers || [],
+      images: equipment.images || [],
+      specs: equipment.specs || [],
+      status: equipment.status || 'available',
+      prices: {
+        perDay: equipment.pricePerDay,
+        perWeek: equipment.pricePerWeek,
+        perMonth: equipment.pricePerMonth
+      },
       pricePerDay: equipment.pricePerDay,
+      replacementPrice: equipment.replacementPrice || equipment.pricePerDay * 10,
       rating: equipment.rating || 4.5,
       reviewCount: equipment.reviewCount || 0,
-      images: equipment.images || ['https://images.unsplash.com/photo-1516035069371-29a1b244cc32?w=800&h=600&fit=crop'],
       availability: equipment.availability || 'available',
       location: equipment.location || {
         address: 'TP.HCM',
         coordinates: [106.6820, 10.7629]
       },
       ownerId: equipment.ownerId?.toString() || FALLBACK_OWNER_ID,
-      replacementPrice: equipment.replacementPrice || equipment.pricePerDay * 10,
       deposit: equipment.deposit ?? equipment.policies?.deposit ?? 0,
       owner: {
         _id: equipment.ownerId?.toString() || FALLBACK_OWNER_ID,
@@ -104,11 +114,11 @@ export async function GET(
         reviewCount: 10,
         joinedDate: new Date().toISOString()
       },
-      specifications: equipment.specifications || {
-        'Thương hiệu': equipment.brand || 'N/A',
-        'Model': equipment.model || 'N/A',
-        'Tình trạng': 'Mới 95%'
-      },
+      specifications: equipment.specs?.reduce((acc: Record<string, string>, spec: { name: string; value: string }) => {
+        acc[spec.name] = spec.value;
+        return acc;
+      }, {} as Record<string, string>) || {},
+      specs: equipment.specs || [],
       policies: equipment.policies || {
         cancellation: 'Hủy miễn phí trong 24 giờ đầu',
         usage: 'Sử dụng cẩn thận và trả về đúng hạn',
@@ -118,7 +128,7 @@ export async function GET(
 
     return NextResponse.json({
       success: true,
-      data: transformedEquipment
+      equipment: transformedEquipment
     });
 
   } catch (error) {
@@ -126,6 +136,123 @@ export async function GET(
     return NextResponse.json({
       success: false,
       message: 'Lỗi server khi tải thông tin thiết bị'
+    }, { status: 500 });
+  }
+}
+
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    await connectMongoDB();
+
+    const formData = await request.formData();
+    
+    // Extract form data
+    const title = formData.get('title') as string;
+    const brand = formData.get('brand') as string;
+    const description = formData.get('description') as string;
+    const category = formData.get('category') as string;
+    const quantity = parseInt(formData.get('quantity') as string);
+    const pricePerDay = parseFloat(formData.get('pricePerDay') as string);
+    const pricePerWeek = parseFloat(formData.get('pricePerWeek') as string) || 0;
+    const pricePerMonth = parseFloat(formData.get('pricePerMonth') as string) || 0;
+    const replacementPrice = parseFloat(formData.get('replacementPrice') as string);
+    const status = formData.get('status') as string;
+    
+    // Serial numbers (JSON string)
+    const serialNumbersData = formData.get('serialNumbers') as string;
+    let serialNumbers: string[] = [];
+    if (serialNumbersData) {
+      try {
+        serialNumbers = JSON.parse(serialNumbersData);
+      } catch (e) {
+        console.error('Error parsing serialNumbers:', e);
+      }
+    }
+    
+    // Images (JSON string of URLs)
+    const imagesData = formData.get('images') as string;
+    let images: string[] = [];
+    if (imagesData) {
+      try {
+        images = JSON.parse(imagesData);
+      } catch (e) {
+        console.error('Error parsing images:', e);
+      }
+    }
+    
+    // Specs data (JSON string)
+    const specsData = formData.get('specs') as string;
+    let specs = [];
+    if (specsData) {
+      try {
+        specs = JSON.parse(specsData);
+      } catch (e) {
+        console.error('Error parsing specs:', e);
+      }
+    }
+
+    // Validate required fields
+    if (!title || !category || !quantity || !pricePerDay || !replacementPrice) {
+      return NextResponse.json({
+        success: false,
+        message: 'Thiếu thông tin bắt buộc'
+      }, { status: 400 });
+    }
+
+    // Validate category
+    const validCategories = ['camera', 'lens', 'lighting', 'audio', 'accessory'];
+    if (!validCategories.includes(category)) {
+      return NextResponse.json({
+        success: false,
+        message: 'Danh mục không hợp lệ'
+      }, { status: 400 });
+    }
+
+    // Update equipment
+    const updateData: any = {
+      title: title.trim(),
+      brand: brand?.trim() || '',
+      description: description?.trim() || '',
+      category,
+      quantity,
+      serialNumbers,
+      images,
+      specs,
+      pricePerDay,
+      pricePerWeek: pricePerWeek || undefined,
+      pricePerMonth: pricePerMonth || undefined,
+      replacementPrice,
+      status: status || 'available',
+      updatedAt: new Date()
+    };
+
+    const equipment = await EquipmentModel.findByIdAndUpdate(
+      params.id,
+      updateData,
+      { new: true, runValidators: true }
+    );
+
+    if (!equipment) {
+      return NextResponse.json({
+        success: false,
+        message: 'Không tìm thấy thiết bị'
+      }, { status: 404 });
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: 'Cập nhật thiết bị thành công',
+      equipment
+    });
+
+  } catch (error) {
+    console.error('Equipment update API error:', error);
+    return NextResponse.json({
+      success: false,
+      message: 'Lỗi server khi cập nhật thiết bị'
     }, { status: 500 });
   }
 }

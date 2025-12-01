@@ -77,8 +77,8 @@ export async function GET(request: NextRequest) {
     // Build search filter
     const filter: SearchFilter = {};
 
-    // Always include available equipment, but don't fail if field doesn't exist
-    // filter.status = 'available';
+    // Only show available equipment for public search
+    filter.status = 'available';
 
     // Text search
     if (query) {

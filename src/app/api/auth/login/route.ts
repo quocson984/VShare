@@ -78,11 +78,18 @@ export async function POST(request: NextRequest) {
             success: true,
             message: 'Đăng nhập thành công',
             user: {
+              _id: userWithoutFilter._id.toString(),
               id: userWithoutFilter._id.toString(),
               email: userWithoutFilter.email,
-              name: userWithoutFilter.fullname,  // Map fullname to name
+              name: userWithoutFilter.fullname,
+              fullname: userWithoutFilter.fullname,
+              phone: userWithoutFilter.phone || '',
+              address: userWithoutFilter.address || '',
+              bio: userWithoutFilter.bio || '',
+              location: userWithoutFilter.location || null,
               role: userWithoutFilter.role || 'user',
               avatar: userWithoutFilter.avatar || null,
+              status: userWithoutFilter.status || 'unverified',
               isVerified: userWithoutFilter.verifications?.length > 0 || false
             }
           });
@@ -116,11 +123,18 @@ export async function POST(request: NextRequest) {
       success: true,
       message: 'Đăng nhập thành công',
       user: {
+        _id: user._id.toString(),
         id: user._id.toString(),
         email: user.email,
-        name: user.fullname,  // Map fullname to name
+        name: user.fullname,
+        fullname: user.fullname,
+        phone: user.phone || '',
+        address: user.address || '',
+        bio: user.bio || '',
+        location: user.location || null,
         role: user.role || 'user',
         avatar: user.avatar || null,
+        status: user.status || 'unverified',
         isVerified: user.verifications?.length > 0 || false
       }
     });

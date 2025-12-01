@@ -27,6 +27,17 @@ export async function POST(request: NextRequest) {
     const latitude = parseFloat(formData.get('latitude') as string);
     const longitude = parseFloat(formData.get('longitude') as string);
     
+    // Serial numbers (JSON string)
+    const serialNumbersData = formData.get('serialNumbers') as string;
+    let serialNumbers: string[] = [];
+    if (serialNumbersData) {
+      try {
+        serialNumbers = JSON.parse(serialNumbersData);
+      } catch (e) {
+        console.error('Error parsing serialNumbers:', e);
+      }
+    }
+    
     // Specs data (JSON string)
     const specsData = formData.get('specs') as string;
     let specs = [];
@@ -35,6 +46,17 @@ export async function POST(request: NextRequest) {
         specs = JSON.parse(specsData);
       } catch (e) {
         console.error('Error parsing specs:', e);
+      }
+    }
+    
+    // Images (JSON string of URLs from ImgBB)
+    const imagesData = formData.get('images') as string;
+    let images: string[] = [];
+    if (imagesData) {
+      try {
+        images = JSON.parse(imagesData);
+      } catch (e) {
+        console.error('Error parsing images:', e);
       }
     }
 
@@ -63,21 +85,6 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // Handle image uploads (for now, we'll store them as URLs)
-    // In production, you'd upload to cloud storage
-    const images: string[] = [];
-    const imageFiles = formData.getAll('images') as File[];
-    
-    for (const file of imageFiles) {
-      if (file && file.size > 0) {
-        // Convert file to base64 for now (in production, upload to cloud storage)
-        const buffer = await file.arrayBuffer();
-        const base64 = Buffer.from(buffer).toString('base64');
-        const dataUrl = `data:${file.type};base64,${base64}`;
-        images.push(dataUrl);
-      }
-    }
-
     // Create equipment
     const equipment = new EquipmentModel({
       title: title.trim(),
@@ -85,6 +92,7 @@ export async function POST(request: NextRequest) {
       model: model?.trim() || '',
       description: description?.trim() || '',
       images,
+      serialNumbers,
       category,
       quantity,
       location: {

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Header from '@/components/Header';
@@ -86,8 +86,6 @@ const DEFAULT_INSURANCE_OPTION: InsuranceOption = {
   status: 'active'
 };
 
-const FALLBACK_RENTER_ID = '000000000000000000000002';
-
 const statusLabels: Record<string, string> = {
   pending: 'Đang chờ xử lý',
   confirmed: 'Đã xác nhận',
@@ -114,6 +112,12 @@ const normalizeBooking = (booking: any): BookingRecord => ({
   notes: booking.notes
 });
 
+interface Toast {
+  id: number;
+  message: string;
+  type: 'success' | 'error' | 'info';
+}
+
 const formatCurrency = (value: number) => `${value.toLocaleString('vi-VN')}đ`;
 
 const estimateInsuranceFee = (option: InsuranceOption | null, days: number) => {
@@ -139,17 +143,93 @@ export default function EquipmentDetailPage() {
     to: null
   });
   const [bookedDates, setBookedDates] = useState<Date[]>([]);
-  const [totalDays, setTotalDays] = useState(1);
-  const [totalPrice, setTotalPrice] = useState(0);
   const [showBookingForm, setShowBookingForm] = useState(false);
   
   // Similar equipment
   const [similarEquipment, setSimilarEquipment] = useState<any[]>([]);
   const [insuranceOptions, setInsuranceOptions] = useState<InsuranceOption[]>([DEFAULT_INSURANCE_OPTION]);
   const [selectedInsuranceId, setSelectedInsuranceId] = useState(DEFAULT_INSURANCE_OPTION.id);
-  const [insuranceFee, setInsuranceFee] = useState(0);
   const [bookingRecord, setBookingRecord] = useState<BookingRecord | null>(null);
   const [bookingSubmitting, setBookingSubmitting] = useState(false);
+  const [toasts, setToasts] = useState<Toast[]>([]);
+
+  const showToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
+    const id = Date.now();
+    setToasts(prev => [...prev, { id, message, type }]);
+    setTimeout(() => {
+      setToasts(prev => prev.filter(t => t.id !== id));
+    }, 3000);
+  };
+
+  // Calculate price instantly using useMemo (no delay)
+  const { totalDays, totalPrice } = useMemo(() => {
+    if (!dateRange.from || !dateRange.to || !equipment) {
+      return { totalDays: 1, totalPrice: 0 };
+    }
+
+    const startDate = new Date(dateRange.from);
+    const endDate = new Date(dateRange.to);
+    startDate.setHours(0, 0, 0, 0);
+    endDate.setHours(0, 0, 0, 0);
+
+    // RULE: Don't charge for first day (pickup) and last day (return)
+    let chargeableDays = 0;
+    let hasWeekend = false;
+    let consecutiveWeekendDays = 0;
+
+    const currentDate = new Date(startDate);
+    currentDate.setDate(currentDate.getDate() + 1); // Skip first day
+
+    while (currentDate < endDate) { // Stop before last day
+      const dayOfWeek = currentDate.getDay();
+
+      if (dayOfWeek === 0 || dayOfWeek === 6) {
+        // Weekend day
+        consecutiveWeekendDays++;
+        if (!hasWeekend) {
+          hasWeekend = true;
+        }
+      } else {
+        // Weekday
+        // If we just finished a weekend period, count it as 1 day
+        if (hasWeekend && consecutiveWeekendDays > 0) {
+          chargeableDays += 1;
+          hasWeekend = false;
+          consecutiveWeekendDays = 0;
+        }
+        chargeableDays += 1;
+      }
+
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+
+    // If loop ended while in weekend period, count it
+    if (hasWeekend && consecutiveWeekendDays > 0) {
+      chargeableDays += 1;
+    }
+
+    chargeableDays = Math.max(1, chargeableDays);
+    return {
+      totalDays: chargeableDays,
+      totalPrice: chargeableDays * equipment.pricePerDay
+    };
+  }, [dateRange, equipment]);
+
+  // Calculate insurance fee instantly
+  const insuranceFee = useMemo(() => {
+    const selectedOption = insuranceOptions.find((opt) => opt.id === selectedInsuranceId) ?? null;
+    return estimateInsuranceFee(selectedOption, Math.max(1, totalDays));
+  }, [selectedInsuranceId, insuranceOptions, totalDays]);
+
+  // Calculate service fee (5% of base price)
+  const serviceFee = useMemo(() => {
+    return Math.round(totalPrice * 0.05);
+  }, [totalPrice]);
+
+  // Calculate final total
+  const finalTotal = useMemo(() => {
+    return totalPrice + serviceFee + insuranceFee;
+  }, [totalPrice, serviceFee, insuranceFee]);
 
   // Fetch equipment details, booked dates, and similar equipment
   useEffect(() => {
@@ -169,8 +249,7 @@ export default function EquipmentDetailPage() {
         const similarData = await similarRes.json();
 
         if (equipmentData.success) {
-          setEquipment(equipmentData.data);
-          setTotalPrice(equipmentData.data.pricePerDay);
+          setEquipment(equipmentData.equipment || equipmentData.data);
         } else {
           setError(equipmentData.message || 'Không tìm thấy thiết bị');
         }
@@ -231,36 +310,45 @@ export default function EquipmentDetailPage() {
     };
 
     loadInsurance();
-    return () => controller.abort();
+    return () => {
+      controller.abort('Component unmounted');
+    };
   }, []);
-
-  // Calculate total price when dates change
-  useEffect(() => {
-    if (dateRange.from && dateRange.to && equipment) {
-      const days = Math.ceil((dateRange.to.getTime() - dateRange.from.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-      
-      if (days > 0) {
-        setTotalDays(days);
-        setTotalPrice(days * equipment.pricePerDay);
-      }
-    }
-  }, [dateRange, equipment]);
-
-  useEffect(() => {
-    const selectedOption = insuranceOptions.find((opt) => opt.id === selectedInsuranceId) ?? null;
-    setInsuranceFee(estimateInsuranceFee(selectedOption, Math.max(1, totalDays)));
-  }, [selectedInsuranceId, insuranceOptions, totalDays]);
 
   const handleBooking = () => {
     if (!dateRange.from || !dateRange.to) {
-      alert('Vui lòng chọn ngày bắt đầu và kết thúc');
+      showToast('Vui lòng chọn ngày bắt đầu và kết thúc', 'error');
       return;
     }
+    
+    // Calculate total days
+    const startDate = new Date(dateRange.from);
+    const endDate = new Date(dateRange.to);
+    startDate.setHours(0, 0, 0, 0);
+    endDate.setHours(0, 0, 0, 0);
+    const totalDays = Math.round((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+    
+    // Validate minimum 3 days
+    if (totalDays < 3) {
+      showToast('Đặt lịch phải tối thiểu 3 ngày (bao gồm ngày nhận và trả)', 'error');
+      return;
+    }
+    
     setShowBookingForm(true);
   };
 
   const handleBookingConfirm = async () => {
     if (!equipment || !dateRange.from || !dateRange.to) {
+      return;
+    }
+
+    // Get logged in user ID
+    const accountId = localStorage.getItem('accountId');
+    if (!accountId) {
+      showToast('Vui lòng đăng nhập để đặt thuê thiết bị', 'error');
+      setTimeout(() => {
+        router.push('/login');
+      }, 2000);
       return;
     }
 
@@ -274,7 +362,7 @@ export default function EquipmentDetailPage() {
         equipmentId: equipment._id,
         startDate,
         endDate,
-        renterId: FALLBACK_RENTER_ID,
+        renterId: accountId,
         ownerId,
         quantity: 1,
         notes: `Đặt thuê từ trang ${equipment.title}`
@@ -289,23 +377,36 @@ export default function EquipmentDetailPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
-      const data = await response.json();
+      
+      console.log('Booking response status:', response.status);
+      const text = await response.text();
+      console.log('Booking response text:', text);
+      
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch (e) {
+        console.error('Failed to parse response:', e);
+        throw new Error('Server trả về response không hợp lệ');
+      }
+      
       if (!data.success) {
-        throw new Error(data.message || 'Không thể tạo đơn thuê.');
+        console.error('Booking error details:', data);
+        throw new Error(data.message || data.error || 'Không thể tạo đơn thuê.');
       }
 
+      const bookingId = data.data._id || data.data.id;
       setBookingRecord(normalizeBooking(data.data));
-      const start = new Date(dateRange.from);
-      const end = new Date(dateRange.to);
-      const newDates: Date[] = [];
-      for (let current = new Date(start); current <= end; current.setDate(current.getDate() + 1)) {
-        newDates.push(new Date(current));
-      }
-      setBookedDates((prev) => [...prev, ...newDates]);
       setShowBookingForm(false);
+      showToast('Đang chuyển sang trang thanh toán...', 'success');
+      
+      // Redirect to payment page
+      setTimeout(() => {
+        router.push(`/payment?bookingId=${bookingId}`);
+      }, 1000);
     } catch (err) {
       console.error('Booking API error:', err);
-      alert(err instanceof Error ? err.message : 'Không thể tạo đơn thuê');
+      showToast(err instanceof Error ? err.message : 'Không thể tạo đơn thuê', 'error');
     } finally {
       setBookingSubmitting(false);
     }
@@ -340,9 +441,6 @@ export default function EquipmentDetailPage() {
       </div>
     );
   }
-
-  const serviceFee = Math.round(totalPrice * 0.05);
-  const finalTotal = totalPrice + serviceFee + insuranceFee;
 
   const mapMarkers = equipment.location?.coordinates ? [{
     id: equipment._id,
@@ -400,28 +498,23 @@ export default function EquipmentDetailPage() {
         </div>
 
         {/* Images Gallery */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-8">
-          <div className="lg:col-span-1">
-            <img
-              src={equipment.images[selectedImage] || equipment.images[0]}
-              alt={equipment.title}
-              className="w-full h-80 lg:h-96 object-cover rounded-lg"
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            {equipment.images.slice(0, 4).map((image, index) => (
+        {equipment.images && equipment.images.length > 0 ? (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-8">
+            <div className="lg:col-span-1">
               <img
-                key={index}
-                src={image}
-                alt={`${equipment.title} ${index + 1}`}
-                className={`w-full h-36 lg:h-44 object-cover rounded-lg cursor-pointer border-2 ${
-                  selectedImage === index ? 'border-orange-500' : 'border-transparent'
-                } hover:border-orange-300`}
-                onClick={() => setSelectedImage(index)}
+                src={equipment.images[selectedImage] || equipment.images[0]}
+                alt={equipment.title}
+                className="w-full h-80 lg:h-96 object-cover rounded-lg"
               />
-            ))}
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="bg-gray-200 rounded-lg h-96 flex items-center justify-center mb-8">
+            <div className="text-center text-gray-500">
+              <p>Chưa có hình ảnh</p>
+            </div>
+          </div>
+        )}
 
         {/* Content Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -458,7 +551,7 @@ export default function EquipmentDetailPage() {
             </div>
 
             {/* Specifications */}
-            {equipment.specifications && (
+            {equipment.specifications && Object.keys(equipment.specifications).length > 0 && (
               <div>
                 <h2 className="text-xl font-semibold text-gray-900 mb-4">Thông số kỹ thuật</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -489,32 +582,6 @@ export default function EquipmentDetailPage() {
               <p className="text-gray-600 mt-2">{equipment.location?.address}</p>
             </div>
 
-            {/* Policies */}
-            {equipment.policies && (
-              <div>
-                <h2 className="text-xl font-semibold text-gray-900 mb-4">Chính sách</h2>
-                <div className="space-y-4">
-                  {equipment.policies.cancellation && (
-                    <div>
-                      <h4 className="font-medium text-gray-900">Hủy đặt:</h4>
-                      <p className="text-gray-700">{equipment.policies.cancellation}</p>
-                    </div>
-                  )}
-                  {equipment.policies.usage && (
-                    <div>
-                      <h4 className="font-medium text-gray-900">Sử dụng:</h4>
-                      <p className="text-gray-700">{equipment.policies.usage}</p>
-                    </div>
-                  )}
-                  {equipment.policies.damage && (
-                    <div>
-                      <h4 className="font-medium text-gray-900">Bồi thường:</h4>
-                      <p className="text-gray-700">{equipment.policies.damage}</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
           </div>
 
           {/* Right Column - Booking Card */}
@@ -692,7 +759,7 @@ export default function EquipmentDetailPage() {
 
       {/* Booking Modal */}
       {showBookingForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg max-w-md w-full p-6">
             <h3 className="text-lg font-semibold mb-4">Xác nhận đặt thuê</h3>
             
@@ -728,6 +795,32 @@ export default function EquipmentDetailPage() {
           </div>
         </div>
       )}
+
+      {/* Toast Notifications */}
+      <div className="fixed bottom-4 right-4 space-y-2 z-50">
+        {toasts.map((toast) => (
+          <div
+            key={toast.id}
+            className={`min-w-[300px] px-4 py-3 rounded-lg shadow-lg text-white transform transition-all duration-300 ${
+              toast.type === 'success' 
+                ? 'bg-green-500' 
+                : toast.type === 'error' 
+                ? 'bg-red-500' 
+                : 'bg-blue-500'
+            }`}
+          >
+            <div className="flex items-center justify-between">
+              <span>{toast.message}</span>
+              <button
+                onClick={() => setToasts(toasts.filter(t => t.id !== toast.id))}
+                className="ml-4 text-white/80 hover:text-white"
+              >
+                ×
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

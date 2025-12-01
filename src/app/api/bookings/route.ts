@@ -128,10 +128,62 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    const totalDays = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1);
+    // Calculate chargeable days using same logic as frontend
+    // RULE: Don't charge for first day (pickup) and last day (return)
+    // If rental period includes weekend, count entire weekend as 1 day
+    start.setHours(0, 0, 0, 0);
+    end.setHours(0, 0, 0, 0);
+
+    let chargeableDays = 0;
+    let hasWeekend = false;
+    let consecutiveWeekendDays = 0;
+
+    const currentDate = new Date(start);
+    currentDate.setDate(currentDate.getDate() + 1); // Skip first day (pickup)
+
+    while (currentDate < end) { // Stop before last day (return)
+      const dayOfWeek = currentDate.getDay();
+
+      if (dayOfWeek === 0 || dayOfWeek === 6) {
+        // Weekend day
+        consecutiveWeekendDays++;
+        if (!hasWeekend) {
+          hasWeekend = true;
+        }
+      } else {
+        // Weekday
+        // If we just finished a weekend period, count it as 1 day
+        if (hasWeekend && consecutiveWeekendDays > 0) {
+          chargeableDays += 1;
+          hasWeekend = false;
+          consecutiveWeekendDays = 0;
+        }
+        chargeableDays += 1;
+      }
+
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+
+    // If loop ended while in weekend period, count it
+    if (hasWeekend && consecutiveWeekendDays > 0) {
+      chargeableDays += 1;
+    }
+
+    chargeableDays = Math.max(1, chargeableDays);
+    const totalDays = chargeableDays;
     const basePrice = totalDays * equipment.pricePerDay * Math.max(1, quantity);
     const serviceFee = Math.round(basePrice * 0.05);
     let insuranceFee = 0;
+
+    console.log('Booking calculation:', {
+      equipmentId,
+      startDate: start,
+      endDate: end,
+      chargeableDays,
+      pricePerDay: equipment.pricePerDay,
+      basePrice,
+      serviceFee
+    });
 
     if (insuranceId) {
       const insurance = await InsuranceModel.findById(insuranceId);
@@ -156,7 +208,7 @@ export async function POST(request: NextRequest) {
       insuranceFee,
       totalPrice,
       insuranceId: insuranceId || undefined,
-      status: 'confirmed',
+      status: 'pending',
       notes: notes?.toString()
     });
 

@@ -4,13 +4,30 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Header from '@/components/Header';
 import Link from 'next/link';
-import { User, Mail, Phone, MapPin, CreditCard, Shield, Camera } from 'lucide-react';
+import Map from '@/components/Map';
+import { User, Phone, MapPin } from 'lucide-react';
 
 export default function DashboardProfilePage() {
   const router = useRouter();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [user, setUser] = useState<Record<string, any> | null>(null);
   const [loading, setLoading] = useState(true);
+  const [formData, setFormData] = useState({
+    fullname: '',
+    phone: '',
+    address: '',
+    bio: '',
+    latitude: 0,
+    longitude: 0
+  });
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string>('');
+  const [mapCenter, setMapCenter] = useState<[number, number]>([10.8231, 106.6297]);
+  const [selectedLocation, setSelectedLocation] = useState<[number, number] | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
+  const [mapKey, setMapKey] = useState(0);
 
   useEffect(() => {
     const savedUser = localStorage.getItem('user');
@@ -19,14 +36,230 @@ export default function DashboardProfilePage() {
       return;
     }
     
-    setUser(JSON.parse(savedUser));
+    const userData = JSON.parse(savedUser);
+    setUser(userData);
+    
+    console.log('User data loaded:', userData);
+    console.log('User location:', userData.location);
+    
+    // Extract coordinates from location object if exists
+    const hasLocation = userData.location?.coordinates && Array.isArray(userData.location.coordinates);
+    const lng = hasLocation ? userData.location.coordinates[0] : 0;
+    const lat = hasLocation ? userData.location.coordinates[1] : 0;
+    
+    console.log('Extracted coordinates - lat:', lat, 'lng:', lng);
+    
+    setFormData({
+      fullname: userData.fullname || '',
+      phone: userData.phone || '',
+      address: userData.address || userData.location?.address || '',
+      bio: userData.bio || '',
+      latitude: lat,
+      longitude: lng
+    });
+    setAvatarPreview(userData.avatar || '');
+    
+    // Set initial map location if user has coordinates
+    if (lat && lng && lat !== 0 && lng !== 0) {
+      console.log('Setting map center and selected location to:', [lat, lng]);
+      const latLngArray: [number, number] = [lat, lng];
+      setMapCenter(latLngArray);
+      setSelectedLocation(latLngArray);
+      setMapKey(prev => prev + 1); // Force map re-render
+    } else {
+      console.log('No valid coordinates found, using default location');
+    }
+    
     setLoading(false);
   }, [router]);
+
+  // Update map when user location changes (after profile update)
+  useEffect(() => {
+    if (user?.location?.coordinates && Array.isArray(user.location.coordinates)) {
+      const lng = user.location.coordinates[0];
+      const lat = user.location.coordinates[1];
+      if (lat && lng && lat !== 0 && lng !== 0) {
+        console.log('User location changed, updating map to:', [lat, lng]);
+        const latLngArray: [number, number] = [lat, lng];
+        setMapCenter(latLngArray);
+        setSelectedLocation(latLngArray);
+        setMapKey(prev => prev + 1); // Force map re-render
+      }
+    }
+  }, [user?.location]);
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value
+    });
+  };
+
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file size (max 32MB)
+    if (file.size > 32 * 1024 * 1024) {
+      alert('Ảnh quá lớn (max 32MB)');
+      return;
+    }
+
+    setAvatarFile(file);
+    
+    // Show preview immediately
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setAvatarPreview(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+
+    // Upload to ImgBB
+    try {
+      const formData = new FormData();
+      formData.append('image', file);
+
+      const API_KEY = process.env.NEXT_PUBLIC_IMGBB_API_KEY || 'adff3abaf78ebaa6413008156d63d754';
+      const response = await fetch(`https://api.imgbb.com/1/upload?key=${API_KEY}`, {
+        method: 'POST',
+        body: formData
+      });
+
+      const result = await response.json();
+      
+      if (result.success && result.data) {
+        const avatarUrl = result.data.display_url || result.data.url;
+        
+        // Update user profile with new avatar URL immediately
+        const userId = user?._id || user?.id;
+        if (userId) {
+          const updateResponse = await fetch('/api/user/profile', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              userId: userId,
+              avatar: avatarUrl
+            })
+          });
+
+          const updateData = await updateResponse.json();
+          if (updateData.success) {
+            // Update localStorage
+            const updatedUser = { ...user, avatar: avatarUrl };
+            localStorage.setItem('user', JSON.stringify(updatedUser));
+            setUser(updatedUser);
+            alert('Cập nhật ảnh đại diện thành công!');
+          }
+        }
+      } else {
+        alert('Lỗi upload ảnh: ' + (result.error?.message || 'Unknown error'));
+      }
+    } catch (error) {
+      console.error('Error uploading avatar:', error);
+      alert('Lỗi kết nối khi upload ảnh');
+    }
+  };
+
+  const handleMapClick = async (lat: number, lng: number) => {
+    console.log('Map clicked - lat:', lat, 'lng:', lng);
+    const latLngArray: [number, number] = [lat, lng];
+    setSelectedLocation(latLngArray);
+    setMapCenter(latLngArray);
+    
+    setFormData(prev => ({
+      ...prev,
+      latitude: lat,
+      longitude: lng
+    }));
+
+    // Reverse geocode to get address
+    try {
+      const response = await fetch(`/api/reverse-geocode?lat=${lat}&lng=${lng}`);
+      const data = await response.json();
+      
+      if (data.success && data.address) {
+        console.log('Reverse geocoded address:', data.address);
+        setFormData(prev => ({
+          ...prev,
+          address: data.address,
+          latitude: lat,
+          longitude: lng
+        }));
+      }
+    } catch (error) {
+      console.error('Error reverse geocoding:', error);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    const userId = user?._id || user?.id;
+    if (!userId) {
+      alert('User ID not found. Please login again.');
+      return;
+    }
+
+    setIsSaving(true);
+    setSuccessMessage('');
+
+    try {
+      const response = await fetch('/api/user/profile', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: userId,
+          fullname: formData.fullname,
+          phone: formData.phone,
+          address: formData.address,
+          bio: formData.bio,
+          latitude: formData.latitude,
+          longitude: formData.longitude
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        // Update localStorage with new user data
+        const updatedUser = {
+          ...user,
+          ...data.data
+        };
+        localStorage.setItem('user', JSON.stringify(updatedUser));
+        setUser(updatedUser);
+        
+        // Update map marker if location was saved
+        if (data.data.location?.coordinates) {
+          const lng = data.data.location.coordinates[0];
+          const lat = data.data.location.coordinates[1];
+          setMapCenter([lat, lng]);
+          setSelectedLocation([lat, lng]);
+        }
+        
+        setSuccessMessage('Cập nhật hồ sơ thành công!');
+        
+        // Clear success message after 3 seconds
+        setTimeout(() => {
+          setSuccessMessage('');
+        }, 3000);
+      } else {
+        alert(data.message || 'Cập nhật thất bại');
+      }
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      alert('Lỗi kết nối server');
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   if (loading || !user) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <Header />
+        <Header hideSearch={true} />
         <div className="flex items-center justify-center py-20">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
         </div>
@@ -36,153 +269,179 @@ export default function DashboardProfilePage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header />
+      <Header hideSearch={true} />
       
-      <div className="flex">
-        {/* Sidebar */}
-        <aside className="w-64 bg-gray-900 text-white min-h-screen p-4">
-          <div className="mb-8">
-            <h2 className="text-xl font-bold mb-2">Dashboard</h2>
-          </div>
+      <main className="py-12">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+          <h1 className="text-3xl font-bold text-gray-900 mb-8">Hồ sơ của tôi</h1>
 
-          <nav className="space-y-2">
-            <Link
-              href="/dashboard/equipments"
-              className="w-full flex items-center space-x-2 px-4 py-3 text-gray-400 hover:bg-gray-800 hover:text-white rounded-lg transition-colors"
-            >
-              <Camera className="h-5 w-5" />
-              <span>Thiết bị</span>
-            </Link>
-
-            <Link
-              href="/dashboard/profile"
-              className="w-full flex items-center space-x-2 px-4 py-3 bg-gray-700 text-white rounded-lg"
-            >
-              <User className="h-5 w-5" />
-              <span>Hồ sơ</span>
-            </Link>
-          </nav>
-        </aside>
-
-        {/* Main Content */}
-        <main className="flex-1 p-8">
-          <div className="max-w-4xl mx-auto">
-            <h1 className="text-3xl font-bold text-gray-900 mb-8">Hồ sơ của tôi</h1>
-
-            {/* Profile Card */}
-            <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-              <div className="flex items-center space-x-4 mb-6">
-                <div className="w-20 h-20 bg-orange-100 rounded-full flex items-center justify-center">
-                  {user.avatar ? (
-                    <img src={user.avatar} alt="Avatar" className="w-20 h-20 rounded-full object-cover" />
-                  ) : (
-                    <User className="h-10 w-10 text-orange-600" />
-                  )}
+          {/* Profile Header */}
+          <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center space-x-4">
+                <div className="relative">
+                  <div className="w-20 h-20 bg-orange-100 rounded-full flex items-center justify-center overflow-hidden">
+                    {(avatarPreview || user.avatar) ? (
+                      /* eslint-disable-next-line @next/next/no-img-element */
+                      <img src={avatarPreview || user.avatar} alt="Avatar" className="w-20 h-20 rounded-full object-cover" />
+                    ) : (
+                      <User className="h-10 w-10 text-orange-600" />
+                    )}
+                  </div>
+                  <label className="absolute bottom-0 right-0 bg-orange-600 text-white p-1.5 rounded-full cursor-pointer hover:bg-orange-700">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleAvatarChange}
+                      className="hidden"
+                    />
+                    <User className="h-4 w-4" />
+                  </label>
                 </div>
                 <div>
                   <h2 className="text-2xl font-bold text-gray-900">{user.fullname || 'Người dùng'}</h2>
                   <p className="text-gray-500">{user.email}</p>
-                  <div className="flex items-center mt-2 space-x-2">
-                    <span className="text-xs px-2 py-1 bg-blue-100 text-blue-800 rounded-full">
-                      {user.role === 'admin' ? 'Quản trị viên' : user.role === 'moderator' ? 'Kiểm duyệt viên' : 'Người dùng'}
+                  <div className="flex gap-2 mt-1">
+                    {/* Credit Badge */}
+                    <span className={`inline-block text-xs px-2 py-1 rounded-full ${
+                      (user.credit === 'trusted' || !user.credit) ? 'bg-blue-100 text-blue-800' : 'bg-red-100 text-red-800'
+                    }`}>
+                      {(user.credit === 'trusted' || !user.credit) ? 'Uy tín' : 'Hạn chế'}
                     </span>
-                    <span className={`text-xs px-2 py-1 rounded-full ${
+                    {/* Status Badge */}
+                    <span className={`inline-block text-xs px-2 py-1 rounded-full ${
                       user.status === 'active' ? 'bg-green-100 text-green-800' : 
                       user.status === 'unverified' ? 'bg-yellow-100 text-yellow-800' : 
                       'bg-red-100 text-red-800'
                     }`}>
-                      {user.status === 'active' ? 'Đã kích hoạt' : 
+                      {user.status === 'active' ? 'Đã xác minh' : 
                        user.status === 'unverified' ? 'Chưa xác minh' : 
                        'Bị khóa'}
                     </span>
                   </div>
                 </div>
               </div>
+              
+              {user.status === 'unverified' && (
+                <Link
+                  href="/verify"
+                  className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
+                >
+                  Bắt đầu xác thực
+                </Link>
+              )}
+            </div>
+          </div>
 
-              {/* Personal Information */}
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Thông tin cá nhân</h3>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
-                    <Mail className="h-5 w-5 text-gray-400" />
-                    <div>
-                      <p className="text-xs text-gray-500">Email</p>
-                      <p className="text-sm font-medium text-gray-900">{user.email}</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
-                    <Phone className="h-5 w-5 text-gray-400" />
-                    <div>
-                      <p className="text-xs text-gray-500">Số điện thoại</p>
-                      <p className="text-sm font-medium text-gray-900">{user.phone || 'Chưa cập nhật'}</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg md:col-span-2">
-                    <MapPin className="h-5 w-5 text-gray-400" />
-                    <div>
-                      <p className="text-xs text-gray-500">Địa chỉ</p>
-                      <p className="text-sm font-medium text-gray-900">{user.address || 'Chưa cập nhật'}</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
-                    <CreditCard className="h-5 w-5 text-gray-400" />
-                    <div>
-                      <p className="text-xs text-gray-500">Ví</p>
-                      <p className="text-sm font-medium text-gray-900">
-                        {user.wallet?.toLocaleString('vi-VN') || '0'} VNĐ
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
-                    <Shield className="h-5 w-5 text-gray-400" />
-                    <div>
-                      <p className="text-xs text-gray-500">Mức độ tin cậy</p>
-                      <p className="text-sm font-medium text-gray-900">
-                        {user.credit === 'trusted' ? 'Tin cậy' : 'Hạn chế'}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Edit Button */}
-                <div className="pt-4">
-                  <button className="px-6 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors">
-                    Chỉnh sửa thông tin
-                  </button>
-                </div>
+          {/* Profile Form */}
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg font-semibold text-gray-900">Thông tin cá nhân</h3>
+              <div className="flex items-center gap-3">
+                {successMessage && (
+                  <span className="text-green-600 text-sm font-medium">{successMessage}</span>
+                )}
+                <button
+                  onClick={handleSubmit}
+                  disabled={isSaving}
+                  className="px-6 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors disabled:bg-orange-300 disabled:cursor-not-allowed"
+                >
+                  {isSaving ? 'Đang lưu...' : 'Lưu thay đổi'}
+                </button>
               </div>
             </div>
 
-            {/* Verification Status */}
-            {user.status === 'unverified' && (
-              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
-                <div className="flex items-start space-x-3">
-                  <Shield className="h-6 w-6 text-yellow-600 mt-1" />
-                  <div className="flex-1">
-                    <h3 className="text-lg font-semibold text-yellow-900 mb-2">
-                      Tài khoản chưa được xác minh
-                    </h3>
-                    <p className="text-yellow-800 mb-4">
-                      Để sử dụng đầy đủ tính năng và tăng độ tin cậy, vui lòng hoàn tất xác minh danh tính.
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Fullname */}
+                <div>
+                  <label className="flex items-center text-sm font-medium text-gray-700 mb-2">
+                    <User className="h-4 w-4 mr-2 text-gray-400" />
+                    Họ và tên
+                  </label>
+                  <input
+                    type="text"
+                    name="fullname"
+                    value={formData.fullname}
+                    onChange={handleInputChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                    placeholder="Nhập họ và tên"
+                  />
+                </div>
+
+                {/* Phone */}
+                <div>
+                  <label className="flex items-center text-sm font-medium text-gray-700 mb-2">
+                    <Phone className="h-4 w-4 mr-2 text-gray-400" />
+                    Số điện thoại
+                  </label>
+                  <input
+                    type="tel"
+                    name="phone"
+                    value={formData.phone}
+                    onChange={handleInputChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                    placeholder="Nhập số điện thoại"
+                  />
+                </div>
+
+                {/* Address */}
+                <div className="md:col-span-2">
+                  <label className="flex items-center text-sm font-medium text-gray-700 mb-2">
+                    <MapPin className="h-4 w-4 mr-2 text-gray-400" />
+                    Địa chỉ
+                  </label>
+                  <input
+                    type="text"
+                    name="address"
+                    value={formData.address}
+                    onChange={handleInputChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                    placeholder="Nhập địa chỉ hoặc chọn vị trí trên bản đồ"
+                  />
+                  
+                  {/* Map Selection */}
+                  <div className="mt-3">
+                    <p className="text-sm text-gray-600 mb-2">
+                      Hoặc chọn vị trí trên bản đồ (click vào map để chọn):
                     </p>
-                    <Link
-                      href="/verify"
-                      className="inline-block px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors"
-                    >
-                      Xác minh ngay
-                    </Link>
+                    <div className="h-64 rounded-lg overflow-hidden border border-gray-300">
+                      <Map
+                        key={mapKey}
+                        center={mapCenter}
+                        markers={selectedLocation ? [{
+                          position: selectedLocation,
+                          title: 'Vị trí của bạn',
+                          id: 'user-location'
+                        }] : []}
+                        zoom={13}
+                        height="100%"
+                        onLocationSelect={handleMapClick}
+                        className="h-full w-full"
+                      />
+                    </div>
                   </div>
                 </div>
+
+                {/* Bio */}
+                <div className="md:col-span-2">
+                  <label className="flex items-center text-sm font-medium text-gray-700 mb-2">
+                    Giới thiệu bản thân
+                  </label>
+                  <textarea
+                    name="bio"
+                    value={formData.bio}
+                    onChange={handleInputChange}
+                    rows={4}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                    placeholder="Viết vài dòng giới thiệu về bản thân..."
+                  />
+                </div>
               </div>
-            )}
+            </form>
           </div>
-        </main>
-      </div>
+        </div>
+      </main>
     </div>
   );
 }

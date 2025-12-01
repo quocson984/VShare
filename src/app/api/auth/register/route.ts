@@ -211,16 +211,21 @@ export async function POST(request: NextRequest) {
 
     // Return user data (without password)
     const userResponse = {
+      _id: savedUser._id.toString(),
       id: savedUser._id.toString(),
       email: savedUser.email,
       fullname: savedUser.fullname,
+      name: savedUser.fullname,
       phone: savedUser.phone,
       address: savedUser.address,
+      bio: savedUser.bio || '',
+      location: savedUser.location || null,
       avatar: savedUser.avatar,
       role: savedUser.role,
       status: savedUser.status,
       credit: savedUser.credit,
       wallet: savedUser.wallet,
+      isVerified: savedUser.verifications?.length > 0 || false,
       createdAt: savedUser.createdAt
     };
 
