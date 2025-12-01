@@ -35,9 +35,8 @@ interface Equipment {
     _id: string;
     name: string;
     avatar?: string;
-    rating: number;
-    reviewCount: number;
-    joinedDate: string;
+    credit?: string;
+    status?: string;
   };
   specifications?: Record<string, string>;
   policies?: {
@@ -473,11 +472,6 @@ export default function EquipmentDetailPage() {
             <h1 className="text-3xl font-bold text-gray-900 mb-2">{equipment.title}</h1>
             <div className="flex items-center space-x-4 text-sm text-gray-600">
               <div className="flex items-center">
-                <Star className="h-4 w-4 text-yellow-400 mr-1" />
-                <span className="font-medium">{equipment.rating}</span>
-                <span className="ml-1">({equipment.reviewCount} đánh giá)</span>
-              </div>
-              <div className="flex items-center">
                 <MapPin className="h-4 w-4 mr-1" />
                 <span>{equipment.location?.address}</span>
               </div>
@@ -533,12 +527,28 @@ export default function EquipmentDetailPage() {
                   )}
                 </div>
                 <div>
-                  <h3 className="font-semibold text-gray-900">Chủ sở hữu: {equipment.owner.name}</h3>
-                  <div className="flex items-center text-sm text-gray-600">
-                    <Star className="h-4 w-4 text-yellow-400 mr-1" />
-                    <span>{equipment.owner.rating} ({equipment.owner.reviewCount} đánh giá)</span>
-                    <span className="mx-2">•</span>
-                    <span>Tham gia từ {new Date(equipment.owner.joinedDate).getFullYear()}</span>
+                  <h3 className="font-semibold text-gray-900">{equipment.owner.name}</h3>
+                  <div className="flex items-center gap-2 mt-1">
+                    {equipment.owner.credit && (
+                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                        equipment.owner.credit === 'trusted' 
+                          ? 'bg-green-100 text-green-800' 
+                          : 'bg-yellow-100 text-yellow-800'
+                      }`}>
+                        {equipment.owner.credit === 'trusted' ? 'Đáng tin cậy' : 'Hạn chế'}
+                      </span>
+                    )}
+                    {equipment.owner.status && (
+                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                        equipment.owner.status === 'active' 
+                          ? 'bg-blue-100 text-blue-800' 
+                          : equipment.owner.status === 'unverified'
+                          ? 'bg-gray-100 text-gray-800'
+                          : 'bg-red-100 text-red-800'
+                      }`}>
+                        {equipment.owner.status === 'active' ? 'Hoạt động' : equipment.owner.status === 'unverified' ? 'Chưa xác minh' : 'Bị cấm'}
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
@@ -593,11 +603,6 @@ export default function EquipmentDetailPage() {
                     {equipment.pricePerDay.toLocaleString('vi-VN')}đ
                   </span>
                   <span className="text-gray-600 ml-1">/ngày</span>
-                </div>
-                <div className="flex items-center mt-1">
-                  <Star className="h-4 w-4 text-yellow-400 mr-1" />
-                  <span className="text-sm font-medium">{equipment.rating}</span>
-                  <span className="text-sm text-gray-600 ml-1">({equipment.reviewCount} đánh giá)</span>
                 </div>
               </div>
 

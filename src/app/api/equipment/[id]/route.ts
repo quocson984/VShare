@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectMongoDB } from '@/lib/mongodb';
 import { EquipmentModel } from '@/models/equipment';
+import { AccountModel } from '@/models/account';
 import type { EquipmentType } from '@/models/equipment';
 
 const FALLBACK_OWNER_ID = '000000000000000000000001';
@@ -52,11 +53,10 @@ export async function GET(
         deposit: 550000,
         owner: {
           _id: FALLBACK_OWNER_ID,
-          name: 'Nguyễn Văn A',
+          name: 'Equipment Owner',
           avatar: null,
-          rating: 4.9,
-          reviewCount: 25,
-          joinedDate: new Date('2023-01-01').toISOString()
+          credit: 'trusted',
+          status: 'active'
         },
         specifications: {
           'Độ phân giải': '45MP',
@@ -106,14 +106,30 @@ export async function GET(
       },
       ownerId: equipment.ownerId?.toString() || FALLBACK_OWNER_ID,
       deposit: equipment.deposit ?? equipment.policies?.deposit ?? 0,
-      owner: {
-        _id: equipment.ownerId?.toString() || FALLBACK_OWNER_ID,
-        name: 'Equipment Owner',
-        avatar: null,
-        rating: 4.8,
-        reviewCount: 10,
-        joinedDate: new Date().toISOString()
-      },
+      owner: await (async () => {
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const ownerData: any = await AccountModel.findById(equipment.ownerId).lean();
+          if (ownerData) {
+            return {
+              _id: ownerData._id.toString(),
+              name: ownerData.fullname || ownerData.email || 'Equipment Owner',
+              avatar: ownerData.avatar || null,
+              credit: ownerData.credit || 'restricted',
+              status: ownerData.status || 'unverified'
+            };
+          }
+        } catch (err) {
+          console.error('Error fetching owner data:', err);
+        }
+        return {
+          _id: equipment.ownerId?.toString() || FALLBACK_OWNER_ID,
+          name: 'Equipment Owner',
+          avatar: null,
+          credit: 'restricted',
+          status: 'unverified'
+        };
+      })(),
       specifications: equipment.specs?.reduce((acc: Record<string, string>, spec: { name: string; value: string }) => {
         acc[spec.name] = spec.value;
         return acc;
