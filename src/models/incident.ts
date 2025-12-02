@@ -3,8 +3,7 @@ import mongoose, { Document, Schema, InferSchemaType } from 'mongoose';
 const IncidentSchema = new Schema({
     bookingId: { 
         type: mongoose.Schema.Types.ObjectId, 
-        ref: 'Booking', 
-        required: [true, 'Booking ID is required']
+        ref: 'Booking'
     },
     reporterId: { 
         type: mongoose.Schema.Types.ObjectId, 
@@ -19,13 +18,12 @@ const IncidentSchema = new Schema({
     images: [String],
     type: { 
         type: String, 
-        enum: ['damage', 'theft', 'late', 'other'], 
+        enum: ['damage', 'theft', 'late', 'other', 'question'], 
         required: [true, 'Incident type is required']
     },
     severity: { 
         type: String, 
-        enum: ['minor', 'major', 'critical'], 
-        required: [true, 'Severity is required']
+        enum: ['minor', 'major', 'critical']
     },
     status: { 
         type: String, 

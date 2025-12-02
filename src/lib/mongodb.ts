@@ -60,3 +60,6 @@ export async function disconnectMongoDB() {
     console.log('Disconnected from MongoDB');
   }
 }
+
+// Alias for consistency
+export const connectDB = connectMongoDB;

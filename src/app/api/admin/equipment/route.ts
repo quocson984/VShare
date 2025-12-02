@@ -1,53 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { connectMongoDB } from '@/lib/mongodb';
+import { connectDB } from '@/lib/mongodb';
 import { EquipmentModel } from '@/models/equipment';
 
 export async function GET(request: NextRequest) {
   try {
-    await connectMongoDB();
+    await connectDB();
 
-    const { searchParams } = new URL(request.url);
-    const status = searchParams.get('status') || 'pending';
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '10');
-
-    // Build query based on status
-    let query: any = {};
-    
-    if (status === 'pending') {
-      query.approvalStatus = 'pending';
-    } else if (status === 'approved') {
-      query.approvalStatus = 'approved';
-    } else if (status === 'rejected') {
-      query.approvalStatus = 'rejected';
-    }
-
-    // Fetch equipment with pagination
-    const skip = (page - 1) * limit;
-    
-    const equipment = await EquipmentModel.find(query)
-      .populate('ownerId', 'email fullname phone')
-      .select('title brand model category quantity pricePerDay pricePerWeek pricePerMonth replacementPrice deposit status approvalStatus approvalNotes images createdAt updatedAt ownerId')
+    const equipment = await EquipmentModel.find()
+      .populate('ownerId', 'fullname email phone avatar')
       .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit)
       .lean();
-
-    // Get total count for pagination
-    const totalCount = await EquipmentModel.countDocuments(query);
-
-    // Get status counts
-    const statusCounts = await EquipmentModel.aggregate([
-      {
-        $group: {
-          _id: null,
-          total: { $sum: 1 },
-          pending: { $sum: { $cond: [{ $eq: ['$approvalStatus', 'pending'] }, 1, 0] } },
-          approved: { $sum: { $cond: [{ $eq: ['$approvalStatus', 'approved'] }, 1, 0] } },
-          rejected: { $sum: { $cond: [{ $eq: ['$approvalStatus', 'rejected'] }, 1, 0] } }
-        }
-      }
-    ]);
 
     const counts = statusCounts[0] || {
       total: 0,
@@ -85,28 +47,22 @@ export async function GET(request: NextRequest) {
           }
         })),
         pagination: {
-          currentPage: page,
-          totalPages: Math.ceil(totalCount / limit),
-          totalCount,
-          hasNext: page < Math.ceil(totalCount / limit),
-          hasPrev: page > 1
-        },
-        counts
-      }
-    });
-
-  } catch (error: any) {
-    console.error('Admin equipment API error:', error);
     return NextResponse.json({
-      success: false,
-      message: 'Error fetching equipment data'
-    }, { status: 500 });
+      success: true,
+      data: equipment,
+    });
+  } catch (error: any) {
+    console.error('Error fetching equipment:', error);
+    return NextResponse.json(
+      { success: false, message: error.message },
+      { status: 500 }
+    );
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
-    await connectMongoDB();
+    await connectDB();
 
     const body = await request.json();
     const { equipmentId, action, notes } = body;

@@ -13,6 +13,7 @@ interface UserData {
   credit: 'trusted' | 'restricted';
   wallet: number;
   createdAt: string;
+  avatar?: string;
 }
 
 interface VerificationData {
@@ -111,9 +112,17 @@ export default function PersonalDashboard({ user, onLogout }: PersonalDashboardP
         onClick={() => setIsOpen(!isOpen)}
         className="flex items-center space-x-2 px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors"
       >
-        <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center">
-          <User className="h-4 w-4 text-orange-600" />
-        </div>
+        {user.avatar ? (
+          <img 
+            src={user.avatar} 
+            alt={user.fullname || 'Avatar'} 
+            className="w-8 h-8 rounded-full object-cover"
+          />
+        ) : (
+          <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center">
+            <User className="h-4 w-4 text-orange-600" />
+          </div>
+        )}
         <span className="text-sm font-medium text-gray-700 hidden sm:block">
           {user.fullname || user.email}
         </span>
@@ -126,17 +135,20 @@ export default function PersonalDashboard({ user, onLogout }: PersonalDashboardP
           {/* Header */}
           <div className="p-4 border-b border-gray-200">
             <div className="flex items-center space-x-3">
-              <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center">
-                <User className="h-6 w-6 text-orange-600" />
-              </div>
+              {user.avatar ? (
+                <img 
+                  src={user.avatar} 
+                  alt={user.fullname || 'Avatar'} 
+                  className="w-12 h-12 rounded-full object-cover"
+                />
+              ) : (
+                <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center">
+                  <User className="h-6 w-6 text-orange-600" />
+                </div>
+              )}
               <div className="flex-1">
                 <h3 className="font-medium text-gray-900">{user.fullname || 'Người dùng'}</h3>
                 <p className="text-sm text-gray-500">{user.email}</p>
-                <div className="flex items-center mt-1">
-                  <span className="text-xs px-2 py-1 bg-blue-100 text-blue-800 rounded-full">
-                    {user.role === 'admin' ? 'Quản trị viên' : user.role === 'moderator' ? 'Kiểm duyệt viên' : 'Người dùng'}
-                  </span>
-                </div>
               </div>
             </div>
           </div>
@@ -167,6 +179,14 @@ export default function PersonalDashboard({ user, onLogout }: PersonalDashboardP
               >
                 <CreditCard className="h-4 w-4" />
                 <span className="text-sm">Giao dịch</span>
+              </Link>
+              <Link
+                href="/dashboard/support"
+                className="flex items-center space-x-2 px-3 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors w-full"
+                onClick={() => setIsOpen(false)}
+              >
+                <AlertTriangle className="h-4 w-4" />
+                <span className="text-sm">Hỗ trợ</span>
               </Link>
               <Link
                 href="/dashboard/profile"

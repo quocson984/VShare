@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
 
     // Enrich bookings with equipment and user details
     const enrichedBookings = await Promise.all(
-      bookings.map(async (booking) => {
+      bookings.map(async (booking: any) => {
         const [equipment, renter, owner] = await Promise.all([
           EquipmentModel.findById(booking.equipmentId).lean(),
           AccountModel.findById(booking.renterId).select('fullname email phone').lean(),
@@ -41,16 +41,16 @@ export async function GET(request: NextRequest) {
           id: booking._id.toString(),
           bookingId: booking._id.toString(),
           equipmentId: booking.equipmentId.toString(),
-          equipmentTitle: equipment?.title || 'Unknown Equipment',
-          equipmentImage: equipment?.images?.[0] || '',
+          equipmentTitle: (equipment as any)?.title || 'Unknown Equipment',
+          equipmentImage: (equipment as any)?.images?.[0] || '',
           renterId: booking.renterId.toString(),
-          renterName: renter?.fullname || 'Unknown',
-          renterEmail: renter?.email || '',
-          renterPhone: renter?.phone || '',
+          renterName: (renter as any)?.fullname || 'Unknown',
+          renterEmail: (renter as any)?.email || '',
+          renterPhone: (renter as any)?.phone || '',
           ownerId: booking.ownerId.toString(),
-          ownerName: owner?.fullname || 'Unknown',
-          ownerEmail: owner?.email || '',
-          ownerPhone: owner?.phone || '',
+          ownerName: (owner as any)?.fullname || 'Unknown',
+          ownerEmail: (owner as any)?.email || '',
+          ownerPhone: (owner as any)?.phone || '',
           startDate: booking.startDate,
           endDate: booking.endDate,
           quantity: booking.quantity,

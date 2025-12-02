@@ -2,6 +2,59 @@ import { NextRequest, NextResponse } from 'next/server';
 import { connectMongoDB } from '@/lib/mongodb';
 import { AccountModel } from '@/models/account';
 
+// GET - Fetch user profile
+export async function GET(request: NextRequest) {
+  try {
+    await connectMongoDB();
+
+    const { searchParams } = new URL(request.url);
+    const userId = searchParams.get('userId');
+
+    if (!userId) {
+      return NextResponse.json({
+        success: false,
+        message: 'User ID is required'
+      }, { status: 400 });
+    }
+
+    const user = await AccountModel.findById(userId)
+      .select('fullname email phone address bio avatar location status role createdAt')
+      .lean();
+
+    if (!user) {
+      return NextResponse.json({
+        success: false,
+        message: 'User not found'
+      }, { status: 404 });
+    }
+
+    return NextResponse.json({
+      success: true,
+      data: {
+        id: user._id.toString(),
+        fullname: user.fullname,
+        email: user.email,
+        phone: user.phone || '',
+        address: user.address || '',
+        bio: user.bio || '',
+        avatar: user.avatar || '',
+        location: user.location,
+        status: user.status,
+        role: user.role,
+        createdAt: user.createdAt
+      }
+    });
+
+  } catch (error) {
+    console.error('Profile fetch error:', error);
+    return NextResponse.json({
+      success: false,
+      message: 'Failed to fetch profile'
+    }, { status: 500 });
+  }
+}
+
+// PUT - Update user profile
 export async function PUT(request: NextRequest) {
   try {
     await connectMongoDB();

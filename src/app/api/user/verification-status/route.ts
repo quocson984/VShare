@@ -31,11 +31,23 @@ export async function GET(request: NextRequest) {
       ? user.verifications[user.verifications.length - 1]
       : null;
 
+    // If no verification exists, return null
+    if (!latestVerification) {
+      return NextResponse.json({
+        success: true,
+        verification: null,
+        userStatus: user.status
+      });
+    }
+
     const verificationData = {
-      status: latestVerification?.status || 'pending',
-      createdAt: latestVerification?.createdAt || user.createdAt,
-      updatedAt: latestVerification?.updatedAt || null,
-      notes: latestVerification?.notes || null
+      status: latestVerification.status,
+      createdAt: latestVerification.createdAt,
+      updatedAt: latestVerification.updatedAt || null,
+      notes: latestVerification.notes || null,
+      frontCccd: latestVerification.frontCccd || null,
+      backCccd: latestVerification.backCccd || null,
+      selfie: latestVerification.selfie || null
     };
 
     return NextResponse.json({

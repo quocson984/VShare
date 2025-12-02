@@ -351,6 +351,19 @@ export default function EquipmentDetailPage() {
       return;
     }
 
+    // Check user verification status
+    const user = localStorage.getItem('user');
+    if (user) {
+      const userData = JSON.parse(user);
+      if (userData.status === 'unverified') {
+        showToast('Bạn cần xác minh tài khoản trước khi thuê thiết bị', 'error');
+        setTimeout(() => {
+          router.push('/verify');
+        }, 2000);
+        return;
+      }
+    }
+
     setBookingSubmitting(true);
     try {
       const startDate = new Date(dateRange.from).toISOString();

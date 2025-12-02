@@ -17,6 +17,14 @@ export default function OwnerPage() {
     if (savedUser) {
       try {
         const userData = JSON.parse(savedUser);
+        
+        // Check verification status
+        if (userData.status === 'unverified') {
+          alert('Bạn cần xác minh tài khoản trước khi đăng thiết bị cho thuê');
+          router.push('/verify');
+          return;
+        }
+        
         setUser(userData);
       } catch (e) {
         console.error('Error parsing user data:', e);

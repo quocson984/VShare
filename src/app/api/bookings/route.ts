@@ -103,6 +103,17 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
+    // Check renter verification status
+    if (renterId) {
+      const renter = await AccountModel.findById(renterId).select('status');
+      if (renter && renter.status === 'unverified') {
+        return NextResponse.json({
+          success: false,
+          message: 'Bạn cần xác minh tài khoản trước khi thuê thiết bị'
+        }, { status: 403 });
+      }
+    }
+
     const equipment = await EquipmentModel.findById(equipmentId);
     if (!equipment) {
       return NextResponse.json({

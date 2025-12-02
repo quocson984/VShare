@@ -145,7 +145,7 @@ export default function TransactionsPage() {
       totalPayouts: 0
     };
 
-    transactions.forEach(t => {
+    filteredTransactions.forEach(t => {
       if (t.type === 'payment') {
         summary.totalPayments += t.amount;
       } else {

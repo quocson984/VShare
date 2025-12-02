@@ -68,6 +68,16 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
+    // Check owner verification status
+    const { AccountModel } = await import('@/models/account');
+    const owner = await AccountModel.findById(ownerId).select('status');
+    if (owner && owner.status === 'unverified') {
+      return NextResponse.json({
+        success: false,
+        message: 'Bạn cần xác minh tài khoản trước khi đăng thiết bị cho thuê'
+      }, { status: 403 });
+    }
+
     // Validate category
     const validCategories = ['camera', 'lens', 'lighting', 'audio', 'accessory'];
     if (!validCategories.includes(category)) {
