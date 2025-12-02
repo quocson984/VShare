@@ -3,9 +3,10 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Camera, Menu, X, Heart, User, Search, MapPin } from 'lucide-react';
+import { Menu, X, Heart, User, Search, MapPin } from 'lucide-react';
 import PlaceKitAutocomplete from './PlaceKitAutocomplete';
 import PersonalDashboard from './PersonalDashboard';
+import Image from 'next/image';
 
 interface HeaderProps {
   hideSearch?: boolean;
@@ -111,7 +112,7 @@ export default function Header({ hideSearch = false }: HeaderProps) {
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
           <Link href="/" className="flex items-center space-x-2 flex-shrink-0">
-            <Camera className="h-8 w-8 text-orange-600" />
+            <Image src="/icon.png" alt="VShare" width={32} height={32} className="w-8 h-8" />
           </Link>
 
           {/* Search Bar */}

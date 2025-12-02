@@ -315,6 +315,60 @@ export default function EquipmentDetailPage() {
   }, []);
 
   const handleBooking = () => {
+    console.log('=== handleBooking called ===');
+    
+    // Check if user is logged in first (MUST have accountId)
+    const accountId = localStorage.getItem('accountId');
+    console.log('accountId from localStorage:', accountId);
+    console.log('accountId type:', typeof accountId);
+    console.log('accountId truthiness:', !!accountId);
+    
+    if (!accountId || accountId === 'null' || accountId === 'undefined' || accountId.trim() === '') {
+      console.log('No valid accountId - redirecting to login');
+      showToast('Vui lòng đăng nhập để đặt thuê thiết bị', 'error');
+      setTimeout(() => {
+        router.push('/login');
+      }, 1500);
+      return;
+    }
+
+    // Check user verification status
+    const userStr = localStorage.getItem('user');
+    console.log('user from localStorage:', userStr);
+    
+    if (!userStr || userStr === 'null' || userStr === 'undefined') {
+      console.log('No valid user data - redirecting to login');
+      showToast('Vui lòng đăng nhập để đặt thuê thiết bị', 'error');
+      setTimeout(() => {
+        router.push('/login');
+      }, 1500);
+      return;
+    }
+    
+    try {
+      const userData = JSON.parse(userStr);
+      console.log('User status:', userData.status);
+      console.log('User data:', userData);
+      
+      if (userData.status !== 'verified') {
+        console.log('User not verified - redirecting to verify');
+        showToast('Bạn cần xác minh tài khoản trước khi thuê thiết bị', 'error');
+        setTimeout(() => {
+          router.push('/verify');
+        }, 1500);
+        return;
+      }
+    } catch (error) {
+      console.error('Error parsing user data:', error);
+      showToast('Lỗi xác thực thông tin người dùng', 'error');
+      setTimeout(() => {
+        router.push('/login');
+      }, 1500);
+      return;
+    }
+    
+    console.log('✓ User is logged in and verified - proceeding');
+
     if (!dateRange.from || !dateRange.to) {
       showToast('Vui lòng chọn ngày bắt đầu và kết thúc', 'error');
       return;

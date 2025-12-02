@@ -15,10 +15,8 @@ export default function DashboardProfilePage() {
   const [formData, setFormData] = useState({
     fullname: '',
     phone: '',
-    address: '',
     bio: '',
-    latitude: 0,
-    longitude: 0
+    address: ''
   });
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
@@ -28,6 +26,7 @@ export default function DashboardProfilePage() {
   const [isSaving, setIsSaving] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [mapKey, setMapKey] = useState(0);
+  const [mapReady, setMapReady] = useState(false);
 
   useEffect(() => {
     const savedUser = localStorage.getItem('user');
@@ -37,6 +36,13 @@ export default function DashboardProfilePage() {
     }
     
     const userData = JSON.parse(savedUser);
+    
+    // Redirect admin/moderator to admin dashboard
+    if (userData.role === 'admin' || userData.role === 'moderator') {
+      router.push('/admin/customers');
+      return;
+    }
+    
     setUser(userData);
     
     console.log('User data loaded:', userData);
@@ -52,10 +58,8 @@ export default function DashboardProfilePage() {
     setFormData({
       fullname: userData.fullname || '',
       phone: userData.phone || '',
-      address: userData.address || userData.location?.address || '',
       bio: userData.bio || '',
-      latitude: lat,
-      longitude: lng
+      address: userData.location?.address || ''
     });
     setAvatarPreview(userData.avatar || '');
     
@@ -65,17 +69,18 @@ export default function DashboardProfilePage() {
       const latLngArray: [number, number] = [lat, lng];
       setMapCenter(latLngArray);
       setSelectedLocation(latLngArray);
-      setMapKey(prev => prev + 1); // Force map re-render
     } else {
       console.log('No valid coordinates found, using default location');
     }
     
     setLoading(false);
+    // Delay to ensure map renders properly with markers
+    setTimeout(() => setMapReady(true), 300);
   }, [router]);
 
   // Update map when user location changes (after profile update)
   useEffect(() => {
-    if (user?.location?.coordinates && Array.isArray(user.location.coordinates)) {
+    if (user?.location?.coordinates && Array.isArray(user.location.coordinates) && mapReady) {
       const lng = user.location.coordinates[0];
       const lat = user.location.coordinates[1];
       if (lat && lng && lat !== 0 && lng !== 0) {
@@ -83,10 +88,9 @@ export default function DashboardProfilePage() {
         const latLngArray: [number, number] = [lat, lng];
         setMapCenter(latLngArray);
         setSelectedLocation(latLngArray);
-        setMapKey(prev => prev + 1); // Force map re-render
       }
     }
-  }, [user?.location]);
+  }, [user?.location, mapReady]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setFormData({
@@ -160,36 +164,7 @@ export default function DashboardProfilePage() {
     }
   };
 
-  const handleMapClick = async (lat: number, lng: number) => {
-    console.log('Map clicked - lat:', lat, 'lng:', lng);
-    const latLngArray: [number, number] = [lat, lng];
-    setSelectedLocation(latLngArray);
-    setMapCenter(latLngArray);
-    
-    setFormData(prev => ({
-      ...prev,
-      latitude: lat,
-      longitude: lng
-    }));
 
-    // Reverse geocode to get address
-    try {
-      const response = await fetch(`/api/reverse-geocode?lat=${lat}&lng=${lng}`);
-      const data = await response.json();
-      
-      if (data.success && data.address) {
-        console.log('Reverse geocoded address:', data.address);
-        setFormData(prev => ({
-          ...prev,
-          address: data.address,
-          latitude: lat,
-          longitude: lng
-        }));
-      }
-    } catch (error) {
-      console.error('Error reverse geocoding:', error);
-    }
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -204,6 +179,13 @@ export default function DashboardProfilePage() {
     setSuccessMessage('');
 
     try {
+      // Prepare location data if coordinates are selected
+      const locationData = selectedLocation ? {
+        type: 'Point',
+        coordinates: [selectedLocation[1], selectedLocation[0]], // [lng, lat]
+        address: formData.address
+      } : undefined;
+
       const response = await fetch('/api/user/profile', {
         method: 'PUT',
         headers: {
@@ -213,10 +195,8 @@ export default function DashboardProfilePage() {
           userId: userId,
           fullname: formData.fullname,
           phone: formData.phone,
-          address: formData.address,
           bio: formData.bio,
-          latitude: formData.latitude,
-          longitude: formData.longitude
+          ...(locationData && { location: locationData })
         }),
       });
 
@@ -230,14 +210,6 @@ export default function DashboardProfilePage() {
         };
         localStorage.setItem('user', JSON.stringify(updatedUser));
         setUser(updatedUser);
-        
-        // Update map marker if location was saved
-        if (data.data.location?.coordinates) {
-          const lng = data.data.location.coordinates[0];
-          const lat = data.data.location.coordinates[1];
-          setMapCenter([lat, lng]);
-          setSelectedLocation([lat, lng]);
-        }
         
         setSuccessMessage('Cập nhật hồ sơ thành công!');
         
@@ -384,59 +356,79 @@ export default function DashboardProfilePage() {
                     placeholder="Nhập số điện thoại"
                   />
                 </div>
+              </div>
 
-                {/* Address */}
-                <div className="md:col-span-2">
-                  <label className="flex items-center text-sm font-medium text-gray-700 mb-2">
-                    <MapPin className="h-4 w-4 mr-2 text-gray-400" />
-                    Địa chỉ
-                  </label>
-                  <input
-                    type="text"
-                    name="address"
-                    value={formData.address}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                    placeholder="Nhập địa chỉ hoặc chọn vị trí trên bản đồ"
-                  />
-                  
-                  {/* Map Selection */}
-                  <div className="mt-3">
-                    <p className="text-sm text-gray-600 mb-2">
-                      Hoặc chọn vị trí trên bản đồ (click vào map để chọn):
-                    </p>
-                    <div className="h-64 rounded-lg overflow-hidden border border-gray-300">
-                      <Map
-                        key={mapKey}
-                        center={mapCenter}
-                        markers={selectedLocation ? [{
-                          position: selectedLocation,
-                          title: 'Vị trí của bạn',
-                          id: 'user-location'
-                        }] : []}
-                        zoom={13}
-                        height="100%"
-                        onLocationSelect={handleMapClick}
-                        className="h-full w-full"
-                      />
+              {/* Bio */}
+              <div>
+                <label className="flex items-center text-sm font-medium text-gray-700 mb-2">
+                  <User className="h-4 w-4 mr-2 text-gray-400" />
+                  Giới thiệu bản thân
+                </label>
+                <textarea
+                  name="bio"
+                  value={formData.bio}
+                  onChange={handleInputChange}
+                  rows={4}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                  placeholder="Viết vài dòng giới thiệu về bản thân..."
+                />
+              </div>
+
+              {/* Address */}
+              <div>
+                <label className="flex items-center text-sm font-medium text-gray-700 mb-2">
+                  <MapPin className="h-4 w-4 mr-2 text-gray-400" />
+                  Địa chỉ
+                </label>
+                <input
+                  type="text"
+                  name="address"
+                  value={formData.address}
+                  onChange={handleInputChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                  placeholder="Nhập địa chỉ của bạn"
+                />
+              </div>
+
+              {/* Map */}
+              <div>
+                <label className="flex items-center text-sm font-medium text-gray-700 mb-2">
+                  <MapPin className="h-4 w-4 mr-2 text-gray-400" />
+                  Vị trí trên bản đồ
+                </label>
+                <p className="text-xs text-gray-500 mb-2">Nhấp vào bản đồ để chọn vị trí của bạn</p>
+                <div className="w-full h-[400px] rounded-lg overflow-hidden border border-gray-300">
+                  {mapReady && (
+                    <Map
+                      key={mapKey}
+                      center={mapCenter}
+                      zoom={13}
+                      markers={selectedLocation ? [{
+                        id: 'user-location',
+                        position: selectedLocation,
+                        title: 'Vị trí của tôi',
+                        description: formData.address || 'Vị trí đã chọn'
+                      }] : []}
+                      onLocationSelect={(lat, lng) => {
+                        console.log('Map clicked at:', [lat, lng]);
+                        setSelectedLocation([lat, lng]);
+                      }}
+                    />
+                  )}
+                  {!mapReady && (
+                    <div className="w-full h-full flex items-center justify-center bg-gray-100">
+                      <div className="flex items-center space-x-2 text-gray-500">
+                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-gray-500"></div>
+                        <span>Đang tải bản đồ...</span>
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
-
-                {/* Bio */}
-                <div className="md:col-span-2">
-                  <label className="flex items-center text-sm font-medium text-gray-700 mb-2">
-                    Giới thiệu bản thân
-                  </label>
-                  <textarea
-                    name="bio"
-                    value={formData.bio}
-                    onChange={handleInputChange}
-                    rows={4}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                    placeholder="Viết vài dòng giới thiệu về bản thân..."
-                  />
-                </div>
+                {selectedLocation && (
+                  <p className="text-xs text-gray-500 mt-2">
+                    Tọa độ đã chọn: {selectedLocation[0].toFixed(6)}, {selectedLocation[1].toFixed(6)}
+                  </p>
+                )}
               </div>
             </form>
           </div>

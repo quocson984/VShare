@@ -187,7 +187,7 @@ function LeafletMap({
 
   // Handle markers
   useEffect(() => {
-    if (!mapInstance.current || !isClient) return;
+    if (!mapInstance.current || !isClient || isLoading) return;
 
     const updateMarkers = async () => {
       try {
@@ -200,6 +200,9 @@ function LeafletMap({
           }
         });
         markersRef.current = [];
+
+        // Wait a bit to ensure map is fully ready
+        await new Promise(resolve => setTimeout(resolve, 100));
 
         // Add new markers
         markers.forEach(markerData => {
@@ -252,7 +255,7 @@ function LeafletMap({
     };
 
     updateMarkers();
-  }, [markers, isClient]);
+  }, [markers, isClient, isLoading]);
 
   // Handle container resize
   useEffect(() => {

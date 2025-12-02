@@ -30,6 +30,36 @@ export default function PaymentPage() {
   const [countdown, setCountdown] = useState(300); // 5 minutes
 
   useEffect(() => {
+    // Check authentication first
+    const accountId = localStorage.getItem('accountId');
+    
+    if (!accountId) {
+      console.log('Payment page: No accountId found, redirecting to login');
+      alert('Vui lòng đăng nhập để thực hiện thanh toán');
+      router.push('/login');
+      return;
+    }
+
+    // Check verification status
+    const userStr = localStorage.getItem('user');
+    if (userStr) {
+      try {
+        const user = JSON.parse(userStr);
+        if (user.status !== 'verified') {
+          console.log('Payment page: User not verified, redirecting to verify');
+          alert('Vui lòng xác minh tài khoản để thực hiện thanh toán');
+          router.push('/verify');
+          return;
+        }
+      } catch (error) {
+        console.error('Payment page: Error parsing user data', error);
+        router.push('/login');
+        return;
+      }
+    }
+
+    console.log('Payment page: Authentication check passed');
+
     if (!bookingId) {
       setError('Không tìm thấy thông tin booking');
       setLoading(false);

@@ -60,7 +60,7 @@ export async function PUT(request: NextRequest) {
     await connectMongoDB();
 
     const body = await request.json();
-    const { userId, fullname, phone, address, bio, latitude, longitude, avatar } = body;
+    const { userId, fullname, phone, address, bio, latitude, longitude, avatar, location } = body;
 
     if (!userId) {
       return NextResponse.json({
@@ -79,14 +79,27 @@ export async function PUT(request: NextRequest) {
     if (bio !== undefined) updateData.bio = bio;
     if (avatar !== undefined) updateData.avatar = avatar;
 
-    // Update location if coordinates are provided
-    if (latitude && longitude && latitude !== 0 && longitude !== 0) {
+    // Update location if coordinates are provided (support both formats)
+    if (location && location.coordinates) {
+      // Format: location object with coordinates array
+      updateData.location = location;
+    } else if (latitude && longitude && latitude !== 0 && longitude !== 0) {
+      // Format: separate latitude and longitude
       updateData.location = {
         type: 'Point',
         coordinates: [longitude, latitude], // GeoJSON format: [lng, lat]
         address: address || '',
         country: 'Vietnam'
       };
+    } else if (address !== undefined && !location && !latitude && !longitude) {
+      // Only address is updated without coordinates - update address in existing location
+      const existingUser = await AccountModel.findById(userId).select('location').lean();
+      if (existingUser && existingUser.location) {
+        updateData.location = {
+          ...existingUser.location,
+          address: address
+        };
+      }
     }
 
     // Update user profile

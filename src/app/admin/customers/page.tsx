@@ -154,17 +154,47 @@ export default function CustomersPage() {
     }
   };
 
-  const filteredCustomers = customers.filter(customer => {
-    const matchesSearch = 
-      customer.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      customer.fullname?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      customer.phone?.includes(searchTerm);
-    
-    const matchesStatus = filterStatus === 'all' || customer.status === filterStatus;
-    const matchesRole = filterRole === 'all' || customer.role === filterRole;
-    
-    return matchesSearch && matchesStatus && matchesRole;
-  });
+  const filteredCustomers = customers
+    .filter(customer => {
+      // Filter out current user's own account
+      if (currentUser && customer._id === currentUser.id) {
+        return false;
+      }
+      
+      // Moderators cannot see admin or other moderator accounts
+      if (currentUser?.role === 'moderator' && (customer.role === 'admin' || customer.role === 'moderator')) {
+        return false;
+      }
+      
+      const matchesSearch = 
+        customer.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        customer.fullname?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        customer.phone?.includes(searchTerm);
+      
+      const matchesStatus = filterStatus === 'all' || customer.status === filterStatus;
+      const matchesRole = filterRole === 'all' || customer.role === filterRole;
+      
+      return matchesSearch && matchesStatus && matchesRole;
+    })
+    .sort((a, b) => {
+      // Priority 1: Unverified status first
+      if (a.status === 'unverified' && b.status !== 'unverified') return -1;
+      if (a.status !== 'unverified' && b.status === 'unverified') return 1;
+      
+      // Priority 2: If both unverified, sort by earliest verification submission
+      if (a.status === 'unverified' && b.status === 'unverified') {
+        const aVerificationTime = a.verifications.length > 0 
+          ? new Date(a.verifications[0].createdAt).getTime() 
+          : Infinity;
+        const bVerificationTime = b.verifications.length > 0 
+          ? new Date(b.verifications[0].createdAt).getTime() 
+          : Infinity;
+        return aVerificationTime - bVerificationTime;
+      }
+      
+      // For other statuses, keep original order
+      return 0;
+    });
 
   const getStatusBadge = (status: string) => {
     const configs = {
@@ -209,12 +239,13 @@ export default function CustomersPage() {
   }
 
   return (
-    <div className="p-8">
+    <div>
       {/* Header */}
-      <div className="mb-8">
+      <div className="bg-white border-b border-gray-200 px-8 py-6">
         <h1 className="text-3xl font-bold text-gray-900">Quản lý Khách hàng</h1>
-        <p className="text-gray-600 mt-2">Quản lý người dùng, xác minh và phân quyền</p>
       </div>
+
+      <div className="p-8">
 
       {/* Filters */}
       <div className="bg-white rounded-lg shadow p-6 mb-6">
@@ -368,8 +399,8 @@ export default function CustomersPage() {
 
       {/* Customer Detail Modal */}
       {selectedCustomer && !selectedVerification && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-white bg-opacity-20 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg min-w-[500px] max-w-2xl max-h-[90vh] overflow-y-auto shadow-xl">
             <div className="p-6 border-b border-gray-200">
               <div className="flex items-center justify-between">
                 <h2 className="text-2xl font-bold text-gray-900">Thông tin khách hàng</h2>
@@ -472,9 +503,12 @@ export default function CustomersPage() {
 
               {/* Verification History */}
               <div className="border-t border-gray-200 pt-6">
-                <h4 className="text-lg font-semibold text-gray-900 mb-4">Lịch sử xác minh</h4>
+                <div className="mb-4">
+                  <h4 className="text-lg font-semibold text-gray-900">Lịch sử xác minh danh tính</h4>
+                  <p className="text-sm text-gray-500 mt-1">Danh sách các lần người dùng gửi yêu cầu xác minh CCCD để nâng cấp tài khoản</p>
+                </div>
                 {selectedCustomer.verifications.length === 0 ? (
-                  <p className="text-gray-500">Chưa có yêu cầu xác minh</p>
+                  <p className="text-gray-500">Người dùng chưa gửi yêu cầu xác minh nào</p>
                 ) : (
                   <div className="space-y-3">
                     {selectedCustomer.verifications.map((verification) => (
@@ -524,8 +558,8 @@ export default function CustomersPage() {
 
       {/* Verification Review Modal */}
       {selectedVerification && selectedCustomer && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-white bg-opacity-20 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg min-w-[600px] max-w-4xl max-h-[90vh] overflow-y-auto shadow-xl">
             <div className="p-6 border-b border-gray-200">
               <div className="flex items-center justify-between">
                 <h2 className="text-2xl font-bold text-gray-900">Xác minh danh tính</h2>
@@ -668,7 +702,7 @@ export default function CustomersPage() {
       {/* Image Zoom Modal */}
       {showImageModal && currentImage && (
         <div
-          className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-50 p-4"
+          className="fixed inset-0 bg-black bg-opacity-40 backdrop-blur-sm flex items-center justify-center z-50 p-4"
           onClick={() => setShowImageModal(false)}
         >
           <div className="relative max-w-5xl w-full h-full flex items-center justify-center">
@@ -688,6 +722,7 @@ export default function CustomersPage() {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }

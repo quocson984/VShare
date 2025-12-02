@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { Trash2, Calendar, MapPin, CreditCard, Shield } from 'lucide-react';
@@ -35,6 +36,7 @@ const insuranceOptions = [
 ];
 
 export default function CartPage() {
+  const router = useRouter();
   const [items, setItems] = useState(cartItems);
   const [selectedInsurance, setSelectedInsurance] = useState('basic');
   const [startDate, setStartDate] = useState('');
@@ -46,6 +48,40 @@ export default function CartPage() {
     address: '',
     idCard: ''
   });
+  const [isChecking, setIsChecking] = useState(true);
+
+  useEffect(() => {
+    // Check authentication on mount
+    const accountId = localStorage.getItem('accountId');
+    
+    if (!accountId) {
+      console.log('Cart page: No accountId found, redirecting to login');
+      alert('Vui lòng đăng nhập để thực hiện thanh toán');
+      router.push('/login');
+      return;
+    }
+
+    // Check verification status
+    const userStr = localStorage.getItem('user');
+    if (userStr) {
+      try {
+        const user = JSON.parse(userStr);
+        if (user.status !== 'verified') {
+          console.log('Cart page: User not verified, redirecting to verify');
+          alert('Vui lòng xác minh tài khoản để thực hiện thanh toán');
+          router.push('/verify');
+          return;
+        }
+      } catch (error) {
+        console.error('Cart page: Error parsing user data', error);
+        router.push('/login');
+        return;
+      }
+    }
+
+    console.log('Cart page: Authentication check passed');
+    setIsChecking(false);
+  }, [router]);
 
   const updateItemDays = (id: string, days: number) => {
     setItems(items.map(item => 
@@ -67,6 +103,21 @@ export default function CartPage() {
     // Handle checkout logic here
     console.log('Checkout:', { items, customerInfo, selectedInsurance, total });
   };
+
+  // Show loading state while checking authentication
+  if (isChecking) {
+    return (
+      <div className="min-h-screen">
+        <Header />
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+          <div className="text-center">
+            <p className="text-gray-600">Đang kiểm tra thông tin...</p>
+          </div>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
 
   if (items.length === 0) {
     return (

@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import { 
-  Search, 
   DollarSign, 
   TrendingUp, 
   TrendingDown,
@@ -11,6 +10,7 @@ import {
   X,
   Eye
 } from 'lucide-react';
+import DateRangePicker from '@/components/DateRangePicker';
 
 interface Payment {
   _id: string;
@@ -27,7 +27,9 @@ interface Payment {
       name: string;
     };
   };
+  paidAt?: string;
   createdAt: string;
+  updatedAt: string;
 }
 
 interface Payout {
@@ -54,11 +56,17 @@ export default function TransactionsPage() {
   const [payouts, setPayouts] = useState<Payout[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'payments' | 'payouts'>('payments');
-  const [searchTerm, setSearchTerm] = useState('');
+  const [dateRange, setDateRange] = useState<{ from: Date | null; to: Date | null }>({ from: null, to: null });
   const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [selectedBooking, setSelectedBooking] = useState<any>(null);
 
   useEffect(() => {
     fetchTransactions();
+    // Set default date range to current month
+    const now = new Date();
+    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    setDateRange({ from: firstDay, to: lastDay });
   }, []);
 
   const fetchTransactions = async () => {
@@ -77,24 +85,47 @@ export default function TransactionsPage() {
   };
 
   const filteredPayments = payments.filter(payment => {
-    const matchesSearch = 
-      payment.bookingId?.renterId?.fullname?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      payment.bookingId?.renterId?.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      payment.bookingId?.equipmentId?.name?.toLowerCase().includes(searchTerm.toLowerCase());
-    
     const matchesStatus = filterStatus === 'all' || payment.status === filterStatus;
     
-    return matchesSearch && matchesStatus;
+    // Filter by date range
+    let matchesDateRange = true;
+    if (dateRange.from || dateRange.to) {
+      const paymentDate = new Date(payment.createdAt);
+      if (dateRange.from) {
+        const fromDate = new Date(dateRange.from);
+        fromDate.setHours(0, 0, 0, 0);
+        matchesDateRange = matchesDateRange && paymentDate >= fromDate;
+      }
+      if (dateRange.to) {
+        const toDate = new Date(dateRange.to);
+        toDate.setHours(23, 59, 59, 999);
+        matchesDateRange = matchesDateRange && paymentDate <= toDate;
+      }
+    }
+    
+    return matchesStatus && matchesDateRange;
   });
 
   const filteredPayouts = payouts.filter(payout => {
-    const matchesSearch = 
-      payout.ownerId?.fullname?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      payout.ownerId?.email?.toLowerCase().includes(searchTerm.toLowerCase());
-    
     const matchesStatus = filterStatus === 'all' || payout.status === filterStatus;
     
-    return matchesSearch && matchesStatus;
+    // Filter by date range
+    let matchesDateRange = true;
+    if (dateRange.from || dateRange.to) {
+      const payoutDate = new Date(payout.createdAt);
+      if (dateRange.from) {
+        const fromDate = new Date(dateRange.from);
+        fromDate.setHours(0, 0, 0, 0);
+        matchesDateRange = matchesDateRange && payoutDate >= fromDate;
+      }
+      if (dateRange.to) {
+        const toDate = new Date(dateRange.to);
+        toDate.setHours(23, 59, 59, 999);
+        matchesDateRange = matchesDateRange && payoutDate <= toDate;
+      }
+    }
+    
+    return matchesStatus && matchesDateRange;
   });
 
   const getStatusBadge = (status: string) => {
@@ -137,14 +168,16 @@ export default function TransactionsPage() {
   }
 
   return (
-    <div className="p-8">
-      <div className="mb-8">
+    <>
+      {/* Header */}
+      <div className="bg-white border-b border-gray-200 px-8 py-6">
         <h1 className="text-3xl font-bold text-gray-900">Quản lý Giao dịch</h1>
-        <p className="text-gray-600 mt-2">Theo dõi thanh toán và payout cho chủ thiết bị</p>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+      {/* Content */}
+      <div className="p-8">
+        {/* Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
         <div className="bg-white rounded-lg shadow p-6">
           <div className="flex items-center justify-between">
             <div>
@@ -166,18 +199,6 @@ export default function TransactionsPage() {
               </p>
             </div>
             <TrendingDown className="w-10 h-10 text-red-600" />
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Lợi nhuận</p>
-              <p className="text-2xl font-bold text-blue-600 mt-1">
-                {(totalPayments - totalPayouts).toLocaleString('vi-VN')}đ
-              </p>
-            </div>
-            <DollarSign className="w-10 h-10 text-blue-600" />
           </div>
         </div>
 
@@ -223,30 +244,31 @@ export default function TransactionsPage() {
 
         {/* Filters */}
         <div className="p-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-              <input
-                type="text"
-                placeholder="Tìm kiếm..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          <div className="flex gap-4 items-end">
+            <div className="flex-1">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Khoảng thời gian</label>
+              <DateRangePicker
+                value={dateRange}
+                onChange={setDateRange}
+                minDate={new Date(2020, 0, 1)}
               />
             </div>
 
-            <select
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              <option value="all">Tất cả trạng thái</option>
-              <option value="pending">Chờ xử lý</option>
-              <option value="paid">Đã thanh toán</option>
-              <option value="completed">Hoàn thành</option>
-              <option value="failed">Thất bại</option>
-              <option value="refunded">Đã hoàn tiền</option>
-            </select>
+            <div className="w-64">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Trạng thái</label>
+              <select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="all">Tất cả trạng thái</option>
+                <option value="pending">Chờ xử lý</option>
+                <option value="paid">Đã thanh toán</option>
+                <option value="completed">Hoàn thành</option>
+                <option value="failed">Thất bại</option>
+                <option value="refunded">Đã hoàn tiền</option>
+              </select>
+            </div>
           </div>
         </div>
       </div>
@@ -259,22 +281,19 @@ export default function TransactionsPage() {
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Người thuê
+                    Khách hàng
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Thiết bị
+                    Mô tả
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Số tiền
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Phương thức
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Trạng thái
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Ngày tạo
+                    Thời gian
                   </th>
                 </tr>
               </thead>
@@ -289,10 +308,13 @@ export default function TransactionsPage() {
                         {payment.bookingId?.renterId?.email}
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">
-                        {payment.bookingId?.equipmentId?.name || 'N/A'}
-                      </div>
+                    <td className="px-6 py-4">
+                      <button
+                        onClick={() => setSelectedBooking(payment.bookingId)}
+                        className="text-sm text-blue-600 hover:text-blue-800 hover:underline text-left"
+                      >
+                        Thanh toán đơn thuê
+                      </button>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-semibold text-gray-900">
@@ -300,16 +322,13 @@ export default function TransactionsPage() {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900 capitalize">
-                        {payment.method || 'N/A'}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
                       {getStatusBadge(payment.status)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-900">
-                        {new Date(payment.createdAt).toLocaleDateString('vi-VN')}
+                        {payment.paidAt 
+                          ? `${new Date(payment.paidAt).toLocaleDateString('vi-VN')} ${new Date(payment.paidAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}`
+                          : 'N/A'}
                       </div>
                     </td>
                   </tr>
@@ -331,7 +350,7 @@ export default function TransactionsPage() {
                     Chủ thiết bị
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Liên hệ
+                    Nội dung
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Số tiền
@@ -340,7 +359,7 @@ export default function TransactionsPage() {
                     Trạng thái
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Ngày tạo
+                    Thời gian
                   </th>
                 </tr>
               </thead>
@@ -355,8 +374,11 @@ export default function TransactionsPage() {
                         {payout.ownerId?.email}
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-6 py-4">
                       <div className="text-sm text-gray-900">
+                        Payout cho chủ thiết bị
+                      </div>
+                      <div className="text-xs text-gray-500">
                         {payout.ownerId?.phone || 'N/A'}
                       </div>
                     </td>
@@ -370,7 +392,7 @@ export default function TransactionsPage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-900">
-                        {new Date(payout.createdAt).toLocaleDateString('vi-VN')}
+                        {new Date(payout.createdAt).toLocaleDateString('vi-VN')} {new Date(payout.createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
                       </div>
                     </td>
                   </tr>
@@ -380,6 +402,101 @@ export default function TransactionsPage() {
           </div>
         </div>
       )}
-    </div>
+      </div>
+
+      {/* Booking Detail Modal */}
+      {selectedBooking && (
+        <div className="fixed inset-0 bg-white bg-opacity-20 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg min-w-[500px] max-w-2xl max-h-[90vh] overflow-y-auto shadow-xl">
+            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center">
+              <h2 className="text-xl font-bold text-gray-900">Chi tiết đơn thuê</h2>
+              <button
+                onClick={() => setSelectedBooking(null)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div>
+                <h3 className="text-sm font-medium text-gray-500">Mã đơn</h3>
+                <p className="mt-1 text-sm text-gray-900">{selectedBooking._id}</p>
+              </div>
+
+              <div>
+                <h3 className="text-sm font-medium text-gray-500">Thiết bị</h3>
+                <p className="mt-1 text-sm text-gray-900">{selectedBooking.equipmentId?.name || 'N/A'}</p>
+              </div>
+
+              <div>
+                <h3 className="text-sm font-medium text-gray-500">Người thuê</h3>
+                <p className="mt-1 text-sm text-gray-900">{selectedBooking.renterId?.fullname || 'N/A'}</p>
+                <p className="text-sm text-gray-500">{selectedBooking.renterId?.email}</p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <h3 className="text-sm font-medium text-gray-500">Ngày bắt đầu</h3>
+                  <p className="mt-1 text-sm text-gray-900">
+                    {selectedBooking.startDate ? new Date(selectedBooking.startDate).toLocaleDateString('vi-VN') : 'N/A'}
+                  </p>
+                </div>
+                <div>
+                  <h3 className="text-sm font-medium text-gray-500">Ngày kết thúc</h3>
+                  <p className="mt-1 text-sm text-gray-900">
+                    {selectedBooking.endDate ? new Date(selectedBooking.endDate).toLocaleDateString('vi-VN') : 'N/A'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <h3 className="text-sm font-medium text-gray-500">Giá cơ bản</h3>
+                  <p className="mt-1 text-sm text-gray-900">
+                    {selectedBooking.basePrice?.toLocaleString('vi-VN') || 0}đ
+                  </p>
+                </div>
+                <div>
+                  <h3 className="text-sm font-medium text-gray-500">Phí dịch vụ</h3>
+                  <p className="mt-1 text-sm text-gray-900">
+                    {selectedBooking.serviceFee?.toLocaleString('vi-VN') || 0}đ
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <h3 className="text-sm font-medium text-gray-500">Phí bảo hiểm</h3>
+                  <p className="mt-1 text-sm text-gray-900">
+                    {selectedBooking.insuranceFee?.toLocaleString('vi-VN') || 0}đ
+                  </p>
+                </div>
+                <div>
+                  <h3 className="text-sm font-medium text-gray-500">Tổng tiền</h3>
+                  <p className="mt-1 text-sm font-semibold text-gray-900">
+                    {selectedBooking.totalPrice?.toLocaleString('vi-VN') || 0}đ
+                  </p>
+                </div>
+              </div>
+
+              <div>
+                <h3 className="text-sm font-medium text-gray-500">Trạng thái</h3>
+                <p className="mt-1 text-sm text-gray-900 capitalize">{selectedBooking.status}</p>
+              </div>
+            </div>
+
+            <div className="sticky bottom-0 bg-gray-50 px-6 py-4 border-t border-gray-200">
+              <button
+                onClick={() => setSelectedBooking(null)}
+                className="w-full px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors"
+              >
+                Đóng
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }

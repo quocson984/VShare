@@ -47,9 +47,11 @@ export async function GET(request: NextRequest) {
           }
         })),
         pagination: {
-    return NextResponse.json({
-      success: true,
-      data: equipment,
+          total: equipment.length,
+          page: 1,
+          limit: equipment.length
+        }
+      }
     });
   } catch (error: any) {
     console.error('Error fetching equipment:', error);

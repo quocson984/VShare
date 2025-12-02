@@ -111,11 +111,14 @@ export default function SupportPage() {
   }
 
   return (
-    <div className="p-8">
-      <div className="mb-8">
+    <>
+      {/* Header */}
+      <div className="bg-white border-b border-gray-200 px-8 py-6">
         <h1 className="text-3xl font-bold text-gray-900">Quản lý Hỗ trợ</h1>
-        <p className="text-gray-600 mt-2">Xử lý các yêu cầu hỗ trợ và sự cố</p>
       </div>
+
+      {/* Content */}
+      <div className="p-8">
 
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
@@ -279,8 +282,8 @@ export default function SupportPage() {
 
       {/* Incident Detail Modal */}
       {selectedIncident && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-white bg-opacity-20 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg min-w-[600px] max-w-3xl max-h-[90vh] overflow-y-auto shadow-xl">
             <div className="p-6 border-b border-gray-200">
               <div className="flex items-center justify-between">
                 <h2 className="text-2xl font-bold text-gray-900">Chi tiết yêu cầu hỗ trợ</h2>
@@ -380,6 +383,7 @@ export default function SupportPage() {
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </>
   );
 }

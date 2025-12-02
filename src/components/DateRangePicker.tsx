@@ -133,15 +133,12 @@ export default function DateRangePicker({
       >
         <div className="flex items-center space-x-2">
           <Calendar className="h-5 w-5 text-gray-400" />
-          <div>
-            <div className="text-sm font-medium text-gray-700">
-              {value.from ? formatDate(value.from) : 'Chọn ngày bắt đầu'}
-            </div>
-            {value.to && (
-              <div className="text-xs text-gray-500">
-                đến {formatDate(value.to)}
-              </div>
-            )}
+          <div className="text-sm font-medium text-gray-700">
+            {value.from && value.to 
+              ? `${formatDate(value.from)} đến ${formatDate(value.to)}`
+              : value.from 
+                ? formatDate(value.from)
+                : 'Chọn ngày bắt đầu'}
           </div>
         </div>
       </div>

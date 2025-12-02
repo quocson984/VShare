@@ -156,46 +156,61 @@ export default function PersonalDashboard({ user, onLogout }: PersonalDashboardP
           {/* Actions */}
           <div className="p-4">
             <div className="space-y-2">
-              <Link
-                href="/dashboard/equipments"
-                className="flex items-center space-x-2 px-3 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors w-full"
-                onClick={() => setIsOpen(false)}
-              >
-                <Camera className="h-4 w-4" />
-                <span className="text-sm">Thiết bị</span>
-              </Link>
-              <Link
-                href="/dashboard/rentals"
-                className="flex items-center space-x-2 px-3 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors w-full"
-                onClick={() => setIsOpen(false)}
-              >
-                <Package className="h-4 w-4" />
-                <span className="text-sm">Đơn thuê</span>
-              </Link>
-              <Link
-                href="/dashboard/transactions"
-                className="flex items-center space-x-2 px-3 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors w-full"
-                onClick={() => setIsOpen(false)}
-              >
-                <CreditCard className="h-4 w-4" />
-                <span className="text-sm">Giao dịch</span>
-              </Link>
-              <Link
-                href="/dashboard/support"
-                className="flex items-center space-x-2 px-3 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors w-full"
-                onClick={() => setIsOpen(false)}
-              >
-                <AlertTriangle className="h-4 w-4" />
-                <span className="text-sm">Hỗ trợ</span>
-              </Link>
-              <Link
-                href="/dashboard/profile"
-                className="flex items-center space-x-2 px-3 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors w-full"
-                onClick={() => setIsOpen(false)}
-              >
-                <User className="h-4 w-4" />
-                <span className="text-sm">Hồ sơ</span>
-              </Link>
+              {(user.role === 'admin' || user.role === 'moderator') ? (
+                // Admin/Moderator menu - only Admin link
+                <Link
+                  href="/admin/customers"
+                  className="flex items-center space-x-2 px-3 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors w-full"
+                  onClick={() => setIsOpen(false)}
+                >
+                  <User className="h-4 w-4" />
+                  <span className="text-sm">Admin</span>
+                </Link>
+              ) : (
+                // Regular user menu - full dashboard
+                <>
+                  <Link
+                    href="/dashboard/equipments"
+                    className="flex items-center space-x-2 px-3 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors w-full"
+                    onClick={() => setIsOpen(false)}
+                  >
+                    <Camera className="h-4 w-4" />
+                    <span className="text-sm">Thiết bị</span>
+                  </Link>
+                  <Link
+                    href="/dashboard/rentals"
+                    className="flex items-center space-x-2 px-3 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors w-full"
+                    onClick={() => setIsOpen(false)}
+                  >
+                    <Package className="h-4 w-4" />
+                    <span className="text-sm">Đơn thuê</span>
+                  </Link>
+                  <Link
+                    href="/dashboard/transactions"
+                    className="flex items-center space-x-2 px-3 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors w-full"
+                    onClick={() => setIsOpen(false)}
+                  >
+                    <CreditCard className="h-4 w-4" />
+                    <span className="text-sm">Giao dịch</span>
+                  </Link>
+                  <Link
+                    href="/dashboard/support"
+                    className="flex items-center space-x-2 px-3 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors w-full"
+                    onClick={() => setIsOpen(false)}
+                  >
+                    <AlertTriangle className="h-4 w-4" />
+                    <span className="text-sm">Hỗ trợ</span>
+                  </Link>
+                  <Link
+                    href="/dashboard/profile"
+                    className="flex items-center space-x-2 px-3 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors w-full"
+                    onClick={() => setIsOpen(false)}
+                  >
+                    <User className="h-4 w-4" />
+                    <span className="text-sm">Hồ sơ</span>
+                  </Link>
+                </>
+              )}
               
               <button
                 onClick={onLogout}
