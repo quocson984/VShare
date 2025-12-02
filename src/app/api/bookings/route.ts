@@ -106,15 +106,43 @@ export async function POST(request: NextRequest) {
     // Check renter verification status
     if (renterId) {
       const renter = await AccountModel.findById(renterId).select('status');
-      if (renter && renter.status === 'unverified') {
+      console.log('Renter verification check:', {
+        renterId,
+        renterStatus: renter?.status,
+        isUnverified: renter?.status === 'unverified'
+      });
+      
+      if (!renter) {
+        return NextResponse.json({
+          success: false,
+          message: 'Tài khoản không tồn tại'
+        }, { status: 404 });
+      }
+      
+      if (renter.status === 'unverified') {
         return NextResponse.json({
           success: false,
           message: 'Bạn cần xác minh tài khoản trước khi thuê thiết bị'
         }, { status: 403 });
       }
+      
+      if (renter.status === 'banned') {
+        return NextResponse.json({
+          success: false,
+          message: 'Tài khoản của bạn đã bị khóa'
+        }, { status: 403 });
+      }
     }
 
     const equipment = await EquipmentModel.findById(equipmentId);
+    
+    // Prevent owner from renting their own equipment
+    if (renterId && equipment && equipment.ownerId.toString() === renterId.toString()) {
+      return NextResponse.json({
+        success: false,
+        message: 'Bạn không thể thuê thiết bị của chính mình'
+      }, { status: 403 });
+    }
     if (!equipment) {
       return NextResponse.json({
         success: false,
@@ -207,9 +235,49 @@ export async function POST(request: NextRequest) {
     const totalPrice = basePrice + serviceFee + insuranceFee;
     const ownerReference = ownerId || equipment.ownerId?.toString() || FALLBACK_OWNER_ID;
 
+    // Auto-assign serial numbers
+    const requestedQty = Math.max(1, quantity);
+    let assignedSerials: string[] = [];
+
+    if (equipment.serialNumbers && equipment.serialNumbers.length > 0) {
+      // Get all overlapping bookings for this equipment
+      const overlappingBookings = await BookingModel.find({
+        equipmentId,
+        status: { $in: ['pending', 'ongoing'] },
+        $or: [
+          { startDate: { $lte: end }, endDate: { $gte: start } }
+        ]
+      }).select('serialNumbers').lean();
+
+      // Collect all reserved serials
+      const reservedSerials = new Set<string>();
+      overlappingBookings.forEach(booking => {
+        if (booking.serialNumbers) {
+          booking.serialNumbers.forEach(serial => reservedSerials.add(serial));
+        }
+      });
+
+      // Find available serials
+      const availableSerials = equipment.serialNumbers.filter(
+        serial => !reservedSerials.has(serial)
+      );
+
+      if (availableSerials.length < requestedQty) {
+        return NextResponse.json({
+          success: false,
+          message: `Chỉ còn ${availableSerials.length} thiết bị khả dụng trong khoảng thời gian này (yêu cầu: ${requestedQty})`
+        }, { status: 400 });
+      }
+
+      // Assign serials
+      assignedSerials = availableSerials.slice(0, requestedQty);
+      console.log('✅ Assigned serials:', assignedSerials);
+    }
+
     const booking = await BookingModel.create({
       equipmentId,
-      quantity: Math.max(1, quantity),
+      quantity: requestedQty,
+      serialNumbers: assignedSerials,
       renterId: renterId || FALLBACK_RENTER_ID,
       ownerId: ownerReference,
       startDate: start,

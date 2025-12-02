@@ -90,7 +90,17 @@ export default function EquipmentUploadForm({ onSuccess, equipmentId }: Equipmen
   const loadEquipmentData = async () => {
     try {
       console.log('Loading equipment:', equipmentId);
-      const response = await fetch(`/api/equipment/${equipmentId}`);
+      
+      // Get viewer ID to allow owner to edit unavailable equipment
+      const userStr = localStorage.getItem('user');
+      const accountId = localStorage.getItem('accountId');
+      const viewerId = accountId || (userStr ? JSON.parse(userStr)._id : null);
+      
+      const url = viewerId 
+        ? `/api/equipment/${equipmentId}?viewerId=${viewerId}`
+        : `/api/equipment/${equipmentId}`;
+      
+      const response = await fetch(url);
       const data = await response.json();
       console.log('Equipment data received:', data);
       

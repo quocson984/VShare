@@ -135,6 +135,7 @@ export default function EquipmentDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [selectedImage, setSelectedImage] = useState(0);
   const [liked, setLiked] = useState(false);
+  const [isOwner, setIsOwner] = useState(false);
   
   // Booking state
   const [dateRange, setDateRange] = useState<{ from: Date | null; to: Date | null }>({
@@ -236,9 +237,18 @@ export default function EquipmentDetailPage() {
       try {
         setLoading(true);
         
-        // Fetch equipment details
+        // Get viewer ID from localStorage to allow owners to see unavailable equipment
+        const userStr = localStorage.getItem('user');
+        const accountId = localStorage.getItem('accountId');
+        const viewerId = accountId || (userStr ? JSON.parse(userStr)._id : null);
+        
+        // Fetch equipment details with viewerId
+        const equipmentUrl = viewerId 
+          ? `/api/equipment/${params.id}?viewerId=${viewerId}`
+          : `/api/equipment/${params.id}`;
+        
         const [equipmentRes, bookedDatesRes, similarRes] = await Promise.all([
-          fetch(`/api/equipment/${params.id}`),
+          fetch(equipmentUrl),
           fetch(`/api/equipment/${params.id}/bookings`),
           fetch(`/api/equipment/${params.id}/similar`)
         ]);
@@ -248,7 +258,22 @@ export default function EquipmentDetailPage() {
         const similarData = await similarRes.json();
 
         if (equipmentData.success) {
-          setEquipment(equipmentData.equipment || equipmentData.data);
+          const equipmentInfo = equipmentData.equipment || equipmentData.data;
+          
+          // Debug: Log location data
+          console.log('Equipment location data:', equipmentInfo.location);
+          if (equipmentInfo.location?.coordinates) {
+            console.log('Coordinates [lng, lat]:', equipmentInfo.location.coordinates);
+            console.log('Address:', equipmentInfo.location.address);
+          }
+          
+          setEquipment(equipmentInfo);
+          
+          // Check if current user is the owner
+          if (viewerId && equipmentInfo) {
+            const equipmentOwnerId = equipmentInfo.ownerId || equipmentInfo.owner?._id;
+            setIsOwner(viewerId === equipmentOwnerId);
+          }
         } else {
           setError(equipmentData.message || 'Không tìm thấy thiết bị');
         }
@@ -405,17 +430,29 @@ export default function EquipmentDetailPage() {
       return;
     }
 
-    // Check user verification status
-    const user = localStorage.getItem('user');
-    if (user) {
-      const userData = JSON.parse(user);
-      if (userData.status === 'unverified') {
-        showToast('Bạn cần xác minh tài khoản trước khi thuê thiết bị', 'error');
-        setTimeout(() => {
-          router.push('/verify');
-        }, 2000);
-        return;
+    // Check user verification status - fetch from server to get latest status
+    try {
+      const statusResponse = await fetch(`/api/user/verification-status?userId=${accountId}`);
+      const statusData = await statusResponse.json();
+      
+      console.log('Verification status check:', statusData);
+      
+      if (statusData.success && statusData.userStatus) {
+        if (statusData.userStatus === 'unverified') {
+          showToast('Bạn cần xác minh tài khoản trước khi thuê thiết bị', 'error');
+          setTimeout(() => {
+            router.push('/verify');
+          }, 2000);
+          return;
+        }
+        if (statusData.userStatus === 'banned') {
+          showToast('Tài khoản của bạn đã bị khóa', 'error');
+          return;
+        }
       }
+    } catch (error) {
+      console.error('Error checking verification status:', error);
+      // Continue with booking if API fails
     }
 
     setBookingSubmitting(true);
@@ -424,6 +461,14 @@ export default function EquipmentDetailPage() {
       const endDate = new Date(dateRange.to).toISOString();
       const ownerCandidate = equipment.ownerId || equipment.owner._id;
       const ownerId = /^[0-9a-fA-F]{24}$/.test(ownerCandidate || '') ? ownerCandidate! : '000000000000000000000001';
+      
+      // Prevent owner from renting their own equipment
+      if (accountId === ownerId) {
+        showToast('Bạn không thể thuê thiết bị của chính mình', 'error');
+        setBookingSubmitting(false);
+        return;
+      }
+      
       const payload: Record<string, any> = {
         equipmentId: equipment._id,
         startDate,
@@ -747,10 +792,11 @@ export default function EquipmentDetailPage() {
 
                 <button
                   onClick={handleBooking}
-                  disabled={!dateRange.from || !dateRange.to || equipment.availability !== 'available'}
+                  disabled={!dateRange.from || !dateRange.to || equipment.availability !== 'available' || isOwner}
                   className="w-full bg-orange-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-orange-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
                 >
-                  {equipment.availability !== 'available' ? 'Không khả dụng' : 'Đặt thuê ngay'}
+                  {isOwner ? 'Đây là thiết bị của bạn' : 
+                   equipment.availability !== 'available' ? 'Không khả dụng' : 'Đặt thuê ngay'}
                 </button>
 
                 <div className="flex items-center justify-center text-sm text-gray-600">

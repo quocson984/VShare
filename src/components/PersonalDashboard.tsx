@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { User, CheckCircle, Clock, AlertTriangle, ChevronDown, Camera, LogOut, Package, CreditCard } from 'lucide-react';
+import { User, CheckCircle, Clock, AlertTriangle, ChevronDown, Camera, LogOut, Package, CreditCard, Mail } from 'lucide-react';
 
 interface UserData {
   id: string;
@@ -198,7 +198,7 @@ export default function PersonalDashboard({ user, onLogout }: PersonalDashboardP
                     className="flex items-center space-x-2 px-3 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors w-full"
                     onClick={() => setIsOpen(false)}
                   >
-                    <AlertTriangle className="h-4 w-4" />
+                    <Mail className="h-4 w-4" />
                     <span className="text-sm">Hỗ trợ</span>
                   </Link>
                   <Link

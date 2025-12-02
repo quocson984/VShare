@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Header from '@/components/Header';
 import RentalHistory from '@/components/RentalHistory';
+import DateRangePicker from '@/components/DateRangePicker';
 import { Search } from 'lucide-react';
 
 export default function DashboardRentalsPage() {
@@ -12,8 +13,10 @@ export default function DashboardRentalsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
+  const [dateRange, setDateRange] = useState<{ from: Date | null; to: Date | null }>({
+    from: null,
+    to: null
+  });
 
   useEffect(() => {
     // Check authentication
@@ -68,21 +71,11 @@ export default function DashboardRentalsPage() {
             </div>
 
             {/* Date Range */}
-            <div className="flex gap-2 items-center">
-              <input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                placeholder="Từ ngày"
-                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-              />
-              <span className="text-gray-500">-</span>
-              <input
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                placeholder="Đến ngày"
-                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+            <div className="flex-1">
+              <DateRangePicker
+                value={dateRange}
+                onChange={setDateRange}
+                minDate={new Date(2020, 0, 1)}
               />
             </div>
 
@@ -93,7 +86,7 @@ export default function DashboardRentalsPage() {
                 onChange={(e) => setStatusFilter(e.target.value)}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
               >
-                <option value="all">Tất cả</option>
+                <option value="all">Tất cả trạng thái</option>
                 <option value="ongoing">Đang thuê</option>
                 <option value="completed">Hoàn thành</option>
                 <option value="canceled">Đã hủy</option>
@@ -106,8 +99,7 @@ export default function DashboardRentalsPage() {
               onClick={() => {
                 setSearchQuery('');
                 setStatusFilter('all');
-                setStartDate('');
-                setEndDate('');
+                setDateRange({ from: null, to: null });
               }}
               className="px-6 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors whitespace-nowrap"
             >
@@ -121,8 +113,8 @@ export default function DashboardRentalsPage() {
           showHeader={false}
           searchQuery={searchQuery}
           statusFilter={statusFilter}
-          startDateFilter={startDate}
-          endDateFilter={endDate}
+          startDateFilter={dateRange.from ? dateRange.from.toISOString().split('T')[0] : ''}
+          endDateFilter={dateRange.to ? dateRange.to.toISOString().split('T')[0] : ''}
         />
       </div>
     </div>

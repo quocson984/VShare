@@ -34,7 +34,7 @@ const EquipmentSchema = new Schema({
         required: [true, 'Quantity is required'],
         min: [1, 'Quantity must be at least 1']
     },
-    // location: LocationSchema,
+    location: LocationSchema,
     specs: [{
         name: { type: String, required: true },
         value: { type: String, required: true }

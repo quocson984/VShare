@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { 
+  Search, 
   Calendar,
   Package,
   User,
@@ -13,7 +14,6 @@ import {
   Eye
 } from 'lucide-react';
 import Image from 'next/image';
-import DateRangePicker from '@/components/DateRangePicker';
 
 interface Booking {
   _id: string;
@@ -38,9 +38,6 @@ interface Booking {
   };
   startDate: string;
   endDate: string;
-  basePrice: number;
-  serviceFee: number;
-  insuranceFee: number;
   totalPrice: number;
   status: string;
   paymentStatus: string;
@@ -50,22 +47,18 @@ interface Booking {
 export default function BookingsPage() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
-  const [dateRange, setDateRange] = useState<{ from: Date | null; to: Date | null }>({ from: null, to: null });
+  const [filterPayment, setFilterPayment] = useState<string>('all');
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
 
   useEffect(() => {
     fetchBookings();
-    // Set default date range to current month
-    const now = new Date();
-    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
-    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-    setDateRange({ from: firstDay, to: lastDay });
   }, []);
 
   const fetchBookings = async () => {
     try {
-      const response = await fetch('/api/admin/rentals');
+      const response = await fetch('/api/admin/bookings');
       const data = await response.json();
       if (data.success) {
         setBookings(data.data);
@@ -78,35 +71,26 @@ export default function BookingsPage() {
   };
 
   const filteredBookings = bookings.filter(booking => {
+    const searchLower = searchTerm.toLowerCase();
+    const matchesSearch = 
+      booking.equipmentId?.name?.toLowerCase().includes(searchLower) ||
+      booking.renterId?.fullname?.toLowerCase().includes(searchLower) ||
+      booking.renterId?.email?.toLowerCase().includes(searchLower) ||
+      booking.ownerId?.fullname?.toLowerCase().includes(searchLower);
+    
     const matchesStatus = filterStatus === 'all' || booking.status === filterStatus;
+    const matchesPayment = filterPayment === 'all' || booking.paymentStatus === filterPayment;
     
-    // Filter by date range
-    let matchesDateRange = true;
-    if (dateRange.from || dateRange.to) {
-      const bookingDate = new Date(booking.createdAt);
-      if (dateRange.from) {
-        const fromDate = new Date(dateRange.from);
-        fromDate.setHours(0, 0, 0, 0);
-        matchesDateRange = matchesDateRange && bookingDate >= fromDate;
-      }
-      if (dateRange.to) {
-        const toDate = new Date(dateRange.to);
-        toDate.setHours(23, 59, 59, 999);
-        matchesDateRange = matchesDateRange && bookingDate <= toDate;
-      }
-    }
-    
-    return matchesStatus && matchesDateRange;
+    return matchesSearch && matchesStatus && matchesPayment;
   });
 
   const getStatusBadge = (status: string) => {
     const configs = {
       pending: { bg: 'bg-yellow-100', text: 'text-yellow-700', label: 'Chờ xác nhận', icon: Clock },
-      ongoing: { bg: 'bg-green-100', text: 'text-green-700', label: 'Đang thuê', icon: CheckCircle },
-      reviewing: { bg: 'bg-blue-100', text: 'text-blue-700', label: 'Đang xem xét', icon: AlertCircle },
+      confirmed: { bg: 'bg-blue-100', text: 'text-blue-700', label: 'Đã xác nhận', icon: CheckCircle },
+      active: { bg: 'bg-green-100', text: 'text-green-700', label: 'Đang thuê', icon: CheckCircle },
       completed: { bg: 'bg-gray-100', text: 'text-gray-700', label: 'Hoàn thành', icon: CheckCircle },
-      canceled: { bg: 'bg-red-100', text: 'text-red-700', label: 'Đã hủy', icon: XCircle },
-      failed: { bg: 'bg-red-100', text: 'text-red-700', label: 'Thất bại', icon: XCircle },
+      cancelled: { bg: 'bg-red-100', text: 'text-red-700', label: 'Đã hủy', icon: XCircle },
     };
     const config = configs[status as keyof typeof configs] || configs.pending;
     const Icon = config.icon;
@@ -154,68 +138,108 @@ export default function BookingsPage() {
   }
 
   return (
-    <div>
+    <div className="p-8">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-8 py-6">
+      <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900">Quản lý Đơn thuê</h1>
+        <p className="text-gray-600 mt-2">Theo dõi và quản lý tất cả đơn đặt thuê thiết bị</p>
       </div>
 
-      <div className="p-8">
-
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
         <div className="bg-white rounded-lg shadow p-6">
-          <p className="text-sm text-gray-600">Tổng đơn thuê</p>
-          <p className="text-2xl font-bold text-gray-900 mt-1">
-            {filteredBookings.length}
-          </p>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-600">Tổng đơn</p>
+              <p className="text-2xl font-bold text-gray-900 mt-1">{bookings.length}</p>
+            </div>
+            <Calendar className="w-10 h-10 text-blue-600" />
+          </div>
         </div>
-        
+
         <div className="bg-white rounded-lg shadow p-6">
-          <p className="text-sm text-gray-600">Doanh thu từ phí dịch vụ</p>
-          <p className="text-2xl font-bold text-blue-600 mt-1">
-            {filteredBookings
-              .reduce((sum, b) => sum + b.serviceFee, 0)
-              .toLocaleString('vi-VN')}đ
-          </p>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-600">Chờ xác nhận</p>
+              <p className="text-2xl font-bold text-yellow-600 mt-1">
+                {bookings.filter(b => b.status === 'pending').length}
+              </p>
+            </div>
+            <Clock className="w-10 h-10 text-yellow-600" />
+          </div>
         </div>
-        
+
         <div className="bg-white rounded-lg shadow p-6">
-          <p className="text-sm text-gray-600">Doanh thu từ phí bảo hiểm</p>
-          <p className="text-2xl font-bold text-green-600 mt-1">
-            {filteredBookings
-              .reduce((sum, b) => sum + b.insuranceFee, 0)
-              .toLocaleString('vi-VN')}đ
-          </p>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-600">Đang hoạt động</p>
+              <p className="text-2xl font-bold text-green-600 mt-1">
+                {bookings.filter(b => b.status === 'active' || b.status === 'confirmed').length}
+              </p>
+            </div>
+            <CheckCircle className="w-10 h-10 text-green-600" />
+          </div>
+        </div>
+
+        <div className="bg-white rounded-lg shadow p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-600">Tổng doanh thu</p>
+              <p className="text-2xl font-bold text-blue-600 mt-1">
+                {bookings.filter(b => b.paymentStatus === 'paid')
+                  .reduce((sum, b) => sum + b.totalPrice, 0)
+                  .toLocaleString('vi-VN')}đ
+              </p>
+            </div>
+            <DollarSign className="w-10 h-10 text-blue-600" />
+          </div>
         </div>
       </div>
 
       {/* Filters */}
       <div className="bg-white rounded-lg shadow p-6 mb-6">
-        <div className="flex gap-4 items-end">
-          <div className="flex-1">
-            <label className="block text-sm font-medium text-gray-700 mb-2">Khoảng thời gian</label>
-            <DateRangePicker
-              value={dateRange}
-              onChange={setDateRange}
-              minDate={new Date(2020, 0, 1)}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+            <input
+              type="text"
+              placeholder="Tìm kiếm theo thiết bị, người thuê..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
 
-          <div className="w-64">
-            <label className="block text-sm font-medium text-gray-700 mb-2">Trạng thái</label>
-            <select
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              <option value="all">Tất cả trạng thái</option>
-              <option value="ongoing">Đang thuê</option>
-              <option value="completed">Hoàn thành</option>
-              <option value="canceled">Đã hủy</option>
-              <option value="failed">Thất bại</option>
-            </select>
-          </div>
+          <select
+            value={filterStatus}
+            onChange={(e) => setFilterStatus(e.target.value)}
+            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          >
+            <option value="all">Tất cả trạng thái</option>
+            <option value="pending">Chờ xác nhận</option>
+            <option value="confirmed">Đã xác nhận</option>
+            <option value="active">Đang thuê</option>
+            <option value="completed">Hoàn thành</option>
+            <option value="cancelled">Đã hủy</option>
+          </select>
+
+          <select
+            value={filterPayment}
+            onChange={(e) => setFilterPayment(e.target.value)}
+            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          >
+            <option value="all">Tất cả thanh toán</option>
+            <option value="pending">Chờ thanh toán</option>
+            <option value="paid">Đã thanh toán</option>
+            <option value="refunded">Đã hoàn tiền</option>
+            <option value="failed">Thất bại</option>
+          </select>
+        </div>
+
+        <div className="mt-4">
+          <p className="text-sm text-gray-600">
+            Hiển thị <span className="font-semibold">{filteredBookings.length}</span> đơn thuê
+          </p>
         </div>
       </div>
 
@@ -235,25 +259,19 @@ export default function BookingsPage() {
                   Chủ sở hữu
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Ngày bắt đầu
+                  Thời gian
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Ngày kết thúc
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Giá thuê
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Phí dịch vụ
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Phí bảo hiểm
+                  Giá
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Trạng thái
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Thời gian
+                  Thanh toán
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Thao tác
                 </th>
               </tr>
             </thead>
@@ -278,54 +296,74 @@ export default function BookingsPage() {
                         )}
                       </div>
                       <div className="ml-3">
-                        <div className="text-sm font-medium text-gray-900 max-w-[200px] truncate" title={booking.equipmentId?.name || 'N/A'}>
+                        <div className="text-sm font-medium text-gray-900">
                           {booking.equipmentId?.name || 'N/A'}
+                        </div>
+                        <div className="text-sm text-gray-500">
+                          {booking.equipmentId?.pricePerDay?.toLocaleString('vi-VN')}đ/ngày
                         </div>
                       </div>
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">
-                      {booking.renterId?.fullname || 'N/A'}
+                    <div className="flex items-center">
+                      {booking.renterId?.avatar ? (
+                        <Image
+                          src={booking.renterId.avatar}
+                          alt={booking.renterId.fullname || booking.renterId.email}
+                          width={32}
+                          height={32}
+                          className="h-8 w-8 rounded-full object-cover"
+                        />
+                      ) : (
+                        <div className="h-8 w-8 rounded-full bg-blue-500 flex items-center justify-center">
+                          <User className="w-4 h-4 text-white" />
+                        </div>
+                      )}
+                      <div className="ml-2">
+                        <div className="text-sm font-medium text-gray-900">
+                          {booking.renterId?.fullname || 'N/A'}
+                        </div>
+                        <div className="text-sm text-gray-500">{booking.renterId?.phone || '-'}</div>
+                      </div>
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm text-gray-900">
                       {booking.ownerId?.fullname || 'N/A'}
                     </div>
+                    <div className="text-sm text-gray-500">{booking.ownerId?.phone || '-'}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm text-gray-900">
                       {new Date(booking.startDate).toLocaleDateString('vi-VN')}
                     </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">
-                      {new Date(booking.endDate).toLocaleDateString('vi-VN')}
+                    <div className="text-sm text-gray-500">
+                      đến {new Date(booking.endDate).toLocaleDateString('vi-VN')}
+                    </div>
+                    <div className="text-xs text-gray-400 mt-1">
+                      ({calculateDays(booking.startDate, booking.endDate)} ngày)
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">
-                      {booking.basePrice?.toLocaleString('vi-VN') || '0'}đ
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">
-                      {booking.serviceFee?.toLocaleString('vi-VN') || '0'}đ
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">
-                      {booking.insuranceFee?.toLocaleString('vi-VN') || '0'}đ
+                    <div className="text-sm font-semibold text-gray-900">
+                      {booking.totalPrice.toLocaleString('vi-VN')}đ
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     {getStatusBadge(booking.status)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">
-                      {new Date(booking.createdAt).toLocaleDateString('vi-VN')} {new Date(booking.createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
-                    </div>
+                    {getPaymentBadge(booking.paymentStatus)}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm">
+                    <button
+                      onClick={() => setSelectedBooking(booking)}
+                      className="text-blue-600 hover:text-blue-900 inline-flex items-center"
+                    >
+                      <Eye className="w-4 h-4 mr-1" />
+                      Chi tiết
+                    </button>
                   </td>
                 </tr>
               ))}
@@ -337,7 +375,7 @@ export default function BookingsPage() {
       {/* Booking Detail Modal */}
       {selectedBooking && (
         <div className="fixed inset-0 bg-black/30 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg min-w-[600px] max-w-3xl max-h-[90vh] overflow-y-auto shadow-xl">
+          <div className="bg-white rounded-lg max-w-3xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6 border-b border-gray-200">
               <div className="flex items-center justify-between">
                 <h2 className="text-2xl font-bold text-gray-900">Chi tiết đơn thuê</h2>
@@ -395,6 +433,25 @@ export default function BookingsPage() {
                 </div>
               </div>
 
+              {/* Serial Numbers */}
+              {(selectedBooking as any).serialNumbers && (selectedBooking as any).serialNumbers.length > 0 && (
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-3">Serial Numbers</h3>
+                  <div className="bg-blue-50 rounded-lg p-4">
+                    <div className="flex flex-wrap gap-2">
+                      {(selectedBooking as any).serialNumbers.map((serial: string, index: number) => (
+                        <span 
+                          key={index}
+                          className="px-3 py-1 bg-blue-600 text-white text-sm font-mono rounded-md"
+                        >
+                          {serial}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Renter Info */}
               <div>
                 <h3 className="text-lg font-semibold text-gray-900 mb-3">Người thuê</h3>
@@ -436,7 +493,6 @@ export default function BookingsPage() {
           </div>
         </div>
       )}
-      </div>
     </div>
   );
 }

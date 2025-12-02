@@ -23,8 +23,11 @@ export async function GET(request: NextRequest) {
       ? { ownerId: userId }
       : { renterId: userId };
 
-    // Fetch bookings
-    const bookings = await BookingModel.find(query)
+    // Fetch bookings (exclude pending status)
+    const bookings = await BookingModel.find({
+      ...query,
+      status: { $ne: 'pending' }
+    })
       .sort({ createdAt: -1 })
       .lean();
 
@@ -54,6 +57,7 @@ export async function GET(request: NextRequest) {
           startDate: booking.startDate,
           endDate: booking.endDate,
           quantity: booking.quantity,
+          serialNumbers: booking.serialNumbers || [],
           basePrice: booking.basePrice,
           serviceFee: booking.serviceFee,
           insuranceFee: booking.insuranceFee,

@@ -28,8 +28,20 @@ export async function GET(
 
     const equipment = (await EquipmentModel.findById(params.id).lean()) as EquipmentDetail | null;
 
-    if (!equipment || equipment.status === 'unavailable') {
-      // Return mock equipment if not found in database
+    // Debug: Log location data from database
+    if (equipment) {
+      console.log('Equipment from DB - location:', equipment.location);
+    }
+
+    // Get viewer ID from query params to check if they're the owner
+    const { searchParams } = new URL(request.url);
+    const viewerId = searchParams.get('viewerId');
+
+    // Allow access if: equipment exists AND (it's available OR viewer is the owner)
+    const isOwner = viewerId && equipment?.ownerId?.toString() === viewerId;
+    
+    if (!equipment || (equipment.status === 'unavailable' && !isOwner)) {
+      // Return mock equipment if not found in database or unavailable for non-owners
       const mockEquipment = {
         _id: params.id,
         title: 'Canon EOS R5 Camera',
@@ -100,10 +112,32 @@ export async function GET(
       rating: equipment.rating || 4.5,
       reviewCount: equipment.reviewCount || 0,
       availability: equipment.availability || 'available',
-      location: equipment.location || {
-        address: 'TP.HCM',
-        coordinates: [106.6820, 10.7629]
-      },
+      location: await (async () => {
+        // Always use owner's location
+        try {
+          const ownerData = await AccountModel.findById(equipment.ownerId).select('location address').lean();
+          if (ownerData && ownerData.location && ownerData.location.coordinates && ownerData.location.coordinates.length === 2) {
+            console.log('✅ Using owner location:', ownerData.location);
+            return {
+              type: 'Point',
+              address: ownerData.location.address || ownerData.address || 'TP.HCM',
+              coordinates: ownerData.location.coordinates,
+              district: ownerData.location.district,
+              city: ownerData.location.city,
+              country: ownerData.location.country || 'Vietnam'
+            };
+          }
+          console.log('⚠️ Owner has no location, using fallback');
+        } catch (err) {
+          console.error('❌ Error fetching owner location:', err);
+        }
+        
+        // Fallback to HCMC default
+        return {
+          address: 'TP.HCM',
+          coordinates: [106.6297, 10.8231]
+        };
+      })(),
       ownerId: equipment.ownerId?.toString() || FALLBACK_OWNER_ID,
       deposit: equipment.deposit ?? equipment.policies?.deposit ?? 0,
       owner: await (async () => {
@@ -227,6 +261,36 @@ export async function PUT(
       }, { status: 400 });
     }
 
+    // Get current equipment to find owner
+    const currentEquipment = await EquipmentModel.findById(params.id);
+    if (!currentEquipment) {
+      return NextResponse.json({
+        success: false,
+        message: 'Không tìm thấy thiết bị'
+      }, { status: 404 });
+    }
+
+    // Get owner's location
+    const owner = await AccountModel.findById(currentEquipment.ownerId).select('location address');
+    let equipmentLocation;
+    if (owner?.location && owner.location.coordinates && owner.location.coordinates.length === 2) {
+      equipmentLocation = {
+        type: 'Point',
+        address: owner.location.address || owner.address || 'TP.HCM',
+        coordinates: owner.location.coordinates,
+        district: owner.location.district,
+        city: owner.location.city,
+        country: owner.location.country || 'Vietnam'
+      };
+    } else {
+      // Keep existing location or use default
+      equipmentLocation = currentEquipment.location || {
+        type: 'Point',
+        address: owner?.address || 'TP.HCM',
+        coordinates: [106.6297, 10.8231]
+      };
+    }
+
     // Update equipment
     const updateData: any = {
       title: title.trim(),
@@ -242,6 +306,7 @@ export async function PUT(
       pricePerMonth: pricePerMonth || undefined,
       replacementPrice,
       status: status || 'available',
+      location: equipmentLocation,
       updatedAt: new Date()
     };
 

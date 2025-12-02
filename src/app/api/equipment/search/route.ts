@@ -421,35 +421,46 @@ export async function GET(request: NextRequest) {
 
     console.log(`Found ${equipment.length} equipment items out of ${total} total`);
 
+    // Get owner data for all equipment to fetch their locations
+    const { AccountModel } = await import('@/models/account');
+    const ownerIds = [...new Set((equipment as unknown as LeanEquipment[]).map(item => (item as any).ownerId?.toString()).filter(Boolean))];
+    const owners = await AccountModel.find({ _id: { $in: ownerIds } }).select('_id fullname location address').lean();
+    const ownerMap = new Map(owners.map(o => [o._id.toString(), o]));
+
     // Transform data for frontend
-    const transformedEquipment = (equipment as unknown as LeanEquipment[]).map((item) => ({
-      id: item._id.toString(),
-      title: item.title,
-      brand: item.brand,
-      model: item.model,
-      category: item.category,
-      description: item.description,
-      images: item.images || [],
-      pricePerDay: item.pricePerDay,
-      pricePerWeek: item.pricePerWeek,
-      pricePerMonth: item.pricePerMonth,
-      location: {
-        coordinates: item.location?.coordinates || [0, 0],
-        address: item.location?.address || 'Chưa cập nhật'
-      },
-      owner: {
-        name: 'Equipment Owner', // Simplified owner info
-        verified: true,
-        badges: ['Verified']
-      },
-      rating: 4.5, // Fixed rating for now
-      reviewCount: Math.floor(Math.random() * 20) + 1, // Random review count
-      availability: 'available',
-      instantBook: true,
-      deliveryOptions: ['pickup'],
-      createdAt: item.createdAt,
-      updatedAt: item.updatedAt
-    }));
+    const transformedEquipment = (equipment as unknown as LeanEquipment[]).map((item) => {
+      const owner = ownerMap.get((item as any).ownerId?.toString());
+      const ownerLocation = owner?.location;
+      
+      return {
+        id: item._id.toString(),
+        title: item.title,
+        brand: item.brand,
+        model: item.model,
+        category: item.category,
+        description: item.description,
+        images: item.images || [],
+        pricePerDay: item.pricePerDay,
+        pricePerWeek: item.pricePerWeek,
+        pricePerMonth: item.pricePerMonth,
+        location: {
+          coordinates: ownerLocation?.coordinates || [106.6297, 10.8231],
+          address: ownerLocation?.address || owner?.address || 'TP.HCM'
+        },
+        owner: {
+          name: owner?.fullname || 'Equipment Owner',
+          verified: true,
+          badges: ['Verified']
+        },
+        rating: 4.5, // Fixed rating for now
+        reviewCount: Math.floor(Math.random() * 20) + 1, // Random review count
+        availability: 'available',
+        instantBook: true,
+        deliveryOptions: ['pickup'],
+        createdAt: item.createdAt,
+        updatedAt: item.updatedAt
+      };
+    });
 
     return NextResponse.json({
       success: true,

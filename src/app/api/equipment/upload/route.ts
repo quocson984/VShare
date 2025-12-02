@@ -68,14 +68,41 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // Check owner verification status
+    // Check owner verification status and get owner location
     const { AccountModel } = await import('@/models/account');
-    const owner = await AccountModel.findById(ownerId).select('status');
-    if (owner && owner.status === 'unverified') {
+    const owner = await AccountModel.findById(ownerId).select('status location address');
+    if (!owner) {
+      return NextResponse.json({
+        success: false,
+        message: 'Chủ thiết bị không tồn tại'
+      }, { status: 404 });
+    }
+    
+    if (owner.status === 'unverified') {
       return NextResponse.json({
         success: false,
         message: 'Bạn cần xác minh tài khoản trước khi đăng thiết bị cho thuê'
       }, { status: 403 });
+    }
+
+    // Use owner's location for equipment
+    let equipmentLocation;
+    if (owner.location && owner.location.coordinates && owner.location.coordinates.length === 2) {
+      equipmentLocation = {
+        type: 'Point',
+        address: owner.location.address || owner.address || 'TP.HCM',
+        coordinates: owner.location.coordinates, // Already in [lng, lat] format
+        district: owner.location.district,
+        city: owner.location.city,
+        country: owner.location.country || 'Vietnam'
+      };
+    } else {
+      // Fallback to default Ho Chi Minh City coordinates
+      equipmentLocation = {
+        type: 'Point',
+        address: owner.address || 'TP.HCM',
+        coordinates: [106.6297, 10.8231] // [lng, lat] for HCMC
+      };
     }
 
     // Validate category
@@ -105,19 +132,14 @@ export async function POST(request: NextRequest) {
       serialNumbers,
       category,
       quantity,
-      location: {
-        type: 'Point',
-        address: address?.trim() || '',
-        coordinates: [longitude || 0, latitude || 0] // [longitude, latitude] format
-      },
+      location: equipmentLocation,
       specs,
       pricePerDay,
       pricePerWeek: pricePerWeek || undefined,
       pricePerMonth: pricePerMonth || undefined,
       replacementPrice,
       deposit,
-      status: 'unavailable', // Start as unavailable until approved
-      approvalStatus: 'pending',
+      // status defaults to 'available' from model
       ownerId
     });
 
@@ -126,12 +148,12 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: 'Equipment uploaded successfully and pending approval',
+      message: 'Equipment uploaded successfully',
       equipment: {
         id: savedEquipment._id.toString(),
         title: savedEquipment.title,
         category: savedEquipment.category,
-        approvalStatus: savedEquipment.approvalStatus,
+        status: savedEquipment.status,
         createdAt: savedEquipment.createdAt
       }
     }, { status: 201 });

@@ -13,6 +13,7 @@ interface Booking {
   endDate: string;
   totalPrice: number;
   quantity?: number;
+  serialNumbers?: string[];
   status: 'pending' | 'ongoing' | 'completed' | 'canceled' | 'failed' | 'reviewing';
   createdAt: string;
   ownerName?: string;
@@ -280,6 +281,9 @@ export default function RentalHistory({
                       Số lượng
                     </th>
                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Serial Numbers
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Ngày bắt đầu
                     </th>
                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -304,6 +308,22 @@ export default function RentalHistory({
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-900">{booking.quantity || 1}</div>
+                      </td>
+                      <td className="px-6 py-4">
+                        {booking.serialNumbers && booking.serialNumbers.length > 0 ? (
+                          <div className="flex flex-wrap gap-1">
+                            {booking.serialNumbers.map((serial, idx) => (
+                              <span 
+                                key={idx}
+                                className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-mono rounded"
+                              >
+                                {serial}
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-sm text-gray-400">-</span>
+                        )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-900">{formatDate(booking.startDate)}</div>

@@ -19,8 +19,10 @@ export async function GET(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // Build query
-    let query: any = { ownerId };
+    // Build query - owner sees all their equipment regardless of status
+    // Convert ownerId to ObjectId for proper matching
+    const mongoose = require('mongoose');
+    let query: any = { ownerId: new mongoose.Types.ObjectId(ownerId) };
     
     if (status !== 'all') {
       if (status === 'pending') {
@@ -34,8 +36,12 @@ export async function GET(request: NextRequest) {
         query.approvalStatus = 'approved';
       } else if (status === 'unavailable') {
         query.status = 'unavailable';
+      } else if (status === 'rented') {
+        query.status = 'rented';
       }
     }
+
+    console.log('Owner equipment query:', JSON.stringify(query));
 
     // Fetch equipment with pagination
     const skip = (page - 1) * limit;
@@ -52,7 +58,7 @@ export async function GET(request: NextRequest) {
 
     // Get status counts
     const statusCounts = await EquipmentModel.aggregate([
-      { $match: { ownerId } },
+      { $match: { ownerId: new mongoose.Types.ObjectId(ownerId) } },
       {
         $group: {
           _id: null,

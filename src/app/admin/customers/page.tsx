@@ -39,6 +39,12 @@ interface Customer {
   createdAt: string;
 }
 
+interface Toast {
+  id: number;
+  message: string;
+  type: 'success' | 'error' | 'info';
+}
+
 export default function CustomersPage() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
@@ -48,6 +54,15 @@ export default function CustomersPage() {
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [selectedVerification, setSelectedVerification] = useState<Verification | null>(null);
   const [showImageModal, setShowImageModal] = useState(false);
+  const [toasts, setToasts] = useState<Toast[]>([]);
+
+  const showToast = (message: string, type: Toast['type'] = 'info') => {
+    const id = Date.now();
+    setToasts(prev => [...prev, { id, message, type }]);
+    setTimeout(() => {
+      setToasts(prev => prev.filter(toast => toast.id !== id));
+    }, 3000);
+  };
   const [currentImage, setCurrentImage] = useState('');
   const [currentUser, setCurrentUser] = useState<any>(null);
 
@@ -79,7 +94,7 @@ export default function CustomersPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          accountId: customerId,
+          userId: customerId,
           verificationId,
           action: 'approve',
         }),
@@ -87,15 +102,15 @@ export default function CustomersPage() {
 
       const data = await response.json();
       if (data.success) {
-        alert('Đã phê duyệt xác minh');
+        showToast('Đã phê duyệt xác minh', 'success');
         fetchCustomers();
         setSelectedVerification(null);
         setSelectedCustomer(null);
       } else {
-        alert('Lỗi: ' + data.message);
+        showToast('Lỗi: ' + data.message, 'error');
       }
     } catch (error) {
-      alert('Lỗi khi phê duyệt');
+      showToast('Lỗi khi phê duyệt', 'error');
     }
   };
 
@@ -105,7 +120,7 @@ export default function CustomersPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          accountId: customerId,
+          userId: customerId,
           verificationId,
           action: 'reject',
           notes,
@@ -114,21 +129,21 @@ export default function CustomersPage() {
 
       const data = await response.json();
       if (data.success) {
-        alert('Đã từ chối xác minh');
+        showToast('Đã từ chối xác minh', 'success');
         fetchCustomers();
         setSelectedVerification(null);
         setSelectedCustomer(null);
       } else {
-        alert('Lỗi: ' + data.message);
+        showToast('Lỗi: ' + data.message, 'error');
       }
     } catch (error) {
-      alert('Lỗi khi từ chối');
+      showToast('Lỗi khi từ chối', 'error');
     }
   };
 
   const handleChangeRole = async (customerId: string, newRole: string) => {
     if (currentUser?.role !== 'admin') {
-      alert('Chỉ admin mới có quyền thay đổi role');
+      showToast('Chỉ admin mới có quyền thay đổi role', 'error');
       return;
     }
 
@@ -143,14 +158,14 @@ export default function CustomersPage() {
 
       const data = await response.json();
       if (data.success) {
-        alert('Đã cập nhật role');
+        showToast('Đã cập nhật role', 'success');
         fetchCustomers();
         setSelectedCustomer(null);
       } else {
-        alert('Lỗi: ' + data.message);
+        showToast('Lỗi: ' + data.message, 'error');
       }
     } catch (error) {
-      alert('Lỗi khi cập nhật role');
+      showToast('Lỗi khi cập nhật role', 'error');
     }
   };
 
@@ -399,7 +414,7 @@ export default function CustomersPage() {
 
       {/* Customer Detail Modal */}
       {selectedCustomer && !selectedVerification && (
-        <div className="fixed inset-0 bg-white bg-opacity-20 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black/30 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-lg min-w-[500px] max-w-2xl max-h-[90vh] overflow-y-auto shadow-xl">
             <div className="p-6 border-b border-gray-200">
               <div className="flex items-center justify-between">
@@ -558,7 +573,7 @@ export default function CustomersPage() {
 
       {/* Verification Review Modal */}
       {selectedVerification && selectedCustomer && (
-        <div className="fixed inset-0 bg-white bg-opacity-20 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black/30 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-lg min-w-[600px] max-w-4xl max-h-[90vh] overflow-y-auto shadow-xl">
             <div className="p-6 border-b border-gray-200">
               <div className="flex items-center justify-between">
@@ -722,6 +737,22 @@ export default function CustomersPage() {
           </div>
         </div>
       )}
+
+      {/* Toast Notifications */}
+      <div className="fixed top-4 right-4 z-[60] space-y-2">
+        {toasts.map((toast) => (
+          <div
+            key={toast.id}
+            className={`px-6 py-3 rounded-lg shadow-lg text-white transition-all transform ${
+              toast.type === 'success' ? 'bg-green-500' :
+              toast.type === 'error' ? 'bg-red-500' :
+              'bg-blue-500'
+            } animate-slide-in-right`}
+          >
+            {toast.message}
+          </div>
+        ))}
+      </div>
       </div>
     </div>
   );
