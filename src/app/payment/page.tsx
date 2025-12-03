@@ -180,13 +180,24 @@ export default function PaymentPage() {
           <div className="bg-white rounded-lg shadow-sm p-8 text-center">
             <XCircle className="h-16 w-16 text-red-500 mx-auto mb-4" />
             <h2 className="text-xl font-semibold text-gray-900 mb-2">Lỗi thanh toán</h2>
-            <p className="text-gray-600 mb-6">{error}</p>
-            <button
-              onClick={() => router.back()}
-              className="px-6 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700"
-            >
-              Quay lại
-            </button>
+            <p className="text-gray-600 mb-4">{error || 'Không thể tải thông tin thanh toán'}</p>
+            {bookingId && (
+              <p className="text-sm text-gray-500 mb-6">Booking ID: {bookingId}</p>
+            )}
+            <div className="flex gap-3 justify-center">
+              <button
+                onClick={() => router.back()}
+                className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
+              >
+                Quay lại
+              </button>
+              <button
+                onClick={() => window.location.reload()}
+                className="px-6 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700"
+              >
+                Thử lại
+              </button>
+            </div>
           </div>
         </div>
       </div>
