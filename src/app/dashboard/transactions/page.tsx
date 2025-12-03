@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Header from '@/components/Header';
-import { Search, ArrowDownLeft, ArrowUpRight, Calendar } from 'lucide-react';
+import DateRangePicker from '@/components/DateRangePicker';
+import { ArrowDownLeft, ArrowUpRight, Calendar } from 'lucide-react';
 
 interface Transaction {
   id: string;
@@ -23,7 +24,6 @@ export default function TransactionsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [filteredTransactions, setFilteredTransactions] = useState<Transaction[]>([]);
-  const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<'all' | 'payment' | 'payout'>('all');
   
   // Get first and last day of current month
@@ -31,16 +31,10 @@ export default function TransactionsPage() {
     const now = new Date();
     const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
     const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-    
-    return {
-      start: firstDay.toISOString().split('T')[0],
-      end: lastDay.toISOString().split('T')[0]
-    };
+    return { from: firstDay, to: lastDay };
   };
   
-  const defaultDates = getDefaultDateRange();
-  const [startDate, setStartDate] = useState(defaultDates.start);
-  const [endDate, setEndDate] = useState(defaultDates.end);
+  const [dateRange, setDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>(getDefaultDateRange);
 
   useEffect(() => {
     const savedUser = localStorage.getItem('user');
@@ -64,30 +58,25 @@ export default function TransactionsPage() {
   useEffect(() => {
     let filtered = [...transactions];
 
-    if (searchQuery) {
-      filtered = filtered.filter(t => 
-        t.equipmentTitle.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        t.counterpartyName?.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-    }
-
     if (typeFilter !== 'all') {
       filtered = filtered.filter(t => t.type === typeFilter);
     }
 
     // Date range filter
-    if (startDate) {
-      filtered = filtered.filter(t => new Date(t.createdAt) >= new Date(startDate));
+    if (dateRange.from) {
+      const startDateTime = new Date(dateRange.from);
+      startDateTime.setHours(0, 0, 0, 0);
+      filtered = filtered.filter(t => new Date(t.createdAt) >= startDateTime);
     }
 
-    if (endDate) {
-      const endDateTime = new Date(endDate);
-      endDateTime.setHours(23, 59, 59, 999); // Include the entire end date
+    if (dateRange.to) {
+      const endDateTime = new Date(dateRange.to);
+      endDateTime.setHours(23, 59, 59, 999);
       filtered = filtered.filter(t => new Date(t.createdAt) <= endDateTime);
     }
 
     setFilteredTransactions(filtered);
-  }, [transactions, searchQuery, typeFilter, startDate, endDate]);
+  }, [transactions, typeFilter, dateRange]);
 
   const fetchTransactions = async () => {
     setIsLoading(true);
@@ -130,13 +119,16 @@ export default function TransactionsPage() {
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString('vi-VN', {
+    const dateStr = date.toLocaleDateString('vi-VN', {
       day: '2-digit',
       month: '2-digit',
-      year: 'numeric',
+      year: 'numeric'
+    });
+    const timeStr = date.toLocaleTimeString('vi-VN', {
       hour: '2-digit',
       minute: '2-digit'
     });
+    return `${dateStr} ${timeStr}`;
   };
 
   const calculateSummary = () => {
@@ -209,46 +201,15 @@ export default function TransactionsPage() {
 
         {/* Filters */}
         <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {/* Search */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Date Range Picker */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Tìm kiếm
+                Khoảng thời gian
               </label>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Tìm theo thiết bị hoặc người..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                />
-              </div>
-            </div>
-
-            {/* Date Range */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Từ ngày
-              </label>
-              <input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Đến ngày
-              </label>
-              <input
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+              <DateRangePicker
+                value={dateRange}
+                onChange={setDateRange}
               />
             </div>
 
@@ -295,16 +256,10 @@ export default function TransactionsPage() {
                       Loại
                     </th>
                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Thiết bị
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Đối tác
+                      Mô tả
                     </th>
                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Số tiền
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Phương thức
                     </th>
                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Thời gian
@@ -330,18 +285,21 @@ export default function TransactionsPage() {
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        <div className="text-sm text-gray-900">{transaction.equipmentTitle}</div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-500">{transaction.counterpartyName || 'N/A'}</div>
+                        <div className="text-sm text-gray-900">
+                          {transaction.type === 'payment' 
+                            ? `Thanh toán thuê ${transaction.equipmentTitle}` 
+                            : `Nhận tiền cho ${transaction.equipmentTitle}`}
+                        </div>
+                        {transaction.counterpartyName && (
+                          <div className="text-xs text-gray-500 mt-1">
+                            {transaction.type === 'payment' ? 'Cho chủ thiết bị' : 'Từ người thuê'}: {transaction.counterpartyName}
+                          </div>
+                        )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className={`text-sm font-medium ${transaction.type === 'payment' ? 'text-red-600' : 'text-green-600'}`}>
                           {transaction.type === 'payment' ? '-' : '+'}{formatPrice(transaction.amount)}
                         </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">{getMethodLabel(transaction.method)}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-500">{formatDate(transaction.createdAt)}</div>
