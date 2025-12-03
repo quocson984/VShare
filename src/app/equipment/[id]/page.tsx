@@ -375,7 +375,8 @@ export default function EquipmentDetailPage() {
       console.log('User status:', userData.status);
       console.log('User data:', userData);
       
-      if (userData.status !== 'verified') {
+      // Check if user is verified (status should be 'verified' or 'active')
+      if (userData.status !== 'verified' && userData.status !== 'active') {
         console.log('User not verified - redirecting to verify');
         showToast('Bạn cần xác minh tài khoản trước khi thuê thiết bị', 'error');
         setTimeout(() => {

@@ -66,7 +66,8 @@ export default function CartPage() {
     if (userStr) {
       try {
         const user = JSON.parse(userStr);
-        if (user.status !== 'verified') {
+        // Allow both 'verified' and 'active' status
+        if (user.status !== 'verified' && user.status !== 'active') {
           console.log('Cart page: User not verified, redirecting to verify');
           alert('Vui lòng xác minh tài khoản để thực hiện thanh toán');
           router.push('/verify');
