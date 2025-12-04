@@ -38,10 +38,18 @@ export default function SupportPage() {
   const [filterType, setFilterType] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [selectedIncident, setSelectedIncident] = useState<Incident | null>(null);
+  const [responseText, setResponseText] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     fetchIncidents();
   }, []);
+
+  useEffect(() => {
+    if (selectedIncident) {
+      setResponseText(selectedIncident.resolution || '');
+    }
+  }, [selectedIncident]);
 
   const fetchIncidents = async () => {
     try {
@@ -54,6 +62,41 @@ export default function SupportPage() {
       console.error('Error fetching incidents:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleUpdateStatus = async (status: 'resolved' | 'rejected') => {
+    if (!selectedIncident || !responseText.trim()) {
+      alert('Vui lòng nhập phản hồi');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const response = await fetch('/api/admin/support', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          incidentId: selectedIncident._id,
+          status,
+          resolution: responseText
+        })
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        await fetchIncidents();
+        setSelectedIncident(null);
+        setResponseText('');
+        alert('Cập nhật thành công');
+      } else {
+        alert('Lỗi: ' + data.message);
+      }
+    } catch (error) {
+      console.error('Error updating incident:', error);
+      alert('Có lỗi xảy ra');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -202,13 +245,10 @@ export default function SupportPage() {
                   Mô tả
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Thiết bị
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Trạng thái
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Ngày tạo
+                  Thời gian
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Thao tác
@@ -252,16 +292,11 @@ export default function SupportPage() {
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">
-                      {incident.bookingId?.equipmentId?.name || '-'}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
                     {getStatusBadge(incident.status)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm text-gray-900">
-                      {new Date(incident.createdAt).toLocaleDateString('vi-VN')}
+                      {new Date(incident.createdAt).toLocaleDateString('vi-VN')} {new Date(incident.createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm">
@@ -376,8 +411,44 @@ export default function SupportPage() {
 
               {/* Created Date */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Ngày tạo</label>
-                <p className="text-gray-900">{new Date(selectedIncident.createdAt).toLocaleString('vi-VN')}</p>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Thời gian tạo</label>
+                <p className="text-gray-900">
+                  {new Date(selectedIncident.createdAt).toLocaleDateString('vi-VN')} {new Date(selectedIncident.createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+                </p>
+              </div>
+
+              {/* Response Form */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Phản hồi</label>
+                <textarea
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  rows={4}
+                  placeholder="Nhập phản hồi cho yêu cầu này..."
+                  value={responseText}
+                  onChange={(e) => setResponseText(e.target.value)}
+                  disabled={isSubmitting}
+                />
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-4 pt-4 border-t border-gray-200">
+                <button
+                  onClick={() => handleUpdateStatus('resolved')}
+                  disabled={isSubmitting}
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium disabled:bg-gray-400 disabled:cursor-not-allowed"
+                >
+                  {isSubmitting ? 'Đang gửi...' : 'Gửi phản hồi'}
+                </button>
+                <button
+                  onClick={() => {
+                    setSelectedIncident(null);
+                    setResponseText('');
+                  }}
+                  disabled={isSubmitting}
+                  className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-medium disabled:cursor-not-allowed"
+                >
+                  Đóng
+                </button>
               </div>
             </div>
           </div>

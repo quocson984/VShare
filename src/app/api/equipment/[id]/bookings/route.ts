@@ -46,10 +46,10 @@ export async function GET(
       });
     }
 
-    // Default view - just return booked date ranges
+    // Default view - just return booked date ranges (exclude failed bookings)
     const bookings = await BookingModel.find({
       equipmentId: equipmentId,
-      status: { $in: ['confirmed', 'pending', 'active'] }
+      status: { $in: ['confirmed', 'pending', 'ongoing'] }
     }).select('startDate endDate');
 
     const bookedDates = bookings.map(booking => ({

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectMongoDB } from '@/lib/mongodb';
 import { EquipmentModel } from '@/models/equipment';
+import { removeVietnameseAccents } from '@/lib/stringUtils';
 
 interface PopulatedOwner {
   personalInfo?: {
@@ -80,15 +81,9 @@ export async function GET(request: NextRequest) {
     // Only show available equipment for public search
     filter.status = 'available';
 
-    // Text search
-    if (query) {
-      filter.$or = [
-        { title: { $regex: query, $options: 'i' } },
-        { brand: { $regex: query, $options: 'i' } },
-        { model: { $regex: query, $options: 'i' } },
-        { description: { $regex: query, $options: 'i' } }
-      ];
-    }
+    // Text search - we'll do post-filtering for accent-insensitive search
+    // So we skip the query filter here and fetch all, then filter in memory
+    const shouldPostFilter = !!query;
 
     // Location search - improved for better matching
     if (location) {
@@ -123,17 +118,7 @@ export async function GET(request: NextRequest) {
       // Start with base filter
       const coordFilter: SearchFilter = {};
       
-      // Keep text search if exists
-      if (query) {
-        coordFilter.$and = [{
-          $or: [
-            { title: { $regex: query, $options: 'i' } },
-            { brand: { $regex: query, $options: 'i' } },
-            { model: { $regex: query, $options: 'i' } },
-            { description: { $regex: query, $options: 'i' } }
-          ]
-        }];
-      }
+      // Text search will be done in post-filtering for accent support
       
       // Add geospatial search - ensure coordinates exist and are valid
       // MongoDB expects [longitude, latitude] format
@@ -409,15 +394,50 @@ export async function GET(request: NextRequest) {
       throw new Error(`Equipment model error: ${modelError.message}`);
     }
     
-    const [equipment, total] = await Promise.all([
+    // If we have a text query, we need to fetch all for post-filtering
+    // because MongoDB regex doesn't support accent-insensitive Vietnamese search
+    const fetchLimit = query ? 1000 : limit; // Fetch more when searching
+    const fetchSkip = query ? 0 : skip; // Start from beginning when searching
+    
+    const [equipmentRaw, total] = await Promise.all([
       EquipmentModel
         .find(filter)
         .sort(sortObj)
-        .skip(skip)
-        .limit(limit)
+        .skip(fetchSkip)
+        .limit(fetchLimit)
         .lean(),
       EquipmentModel.countDocuments(filter)
     ]);
+
+    console.log(`Fetched ${equipmentRaw.length} equipment items from DB`);
+
+    // Post-filter for Vietnamese accent-insensitive search
+    let equipment = equipmentRaw;
+    if (query) {
+      const normalizedQuery = removeVietnameseAccents(query.toLowerCase());
+      console.log(`Filtering with normalized query: "${normalizedQuery}"`);
+      
+      equipment = equipmentRaw.filter((item: any) => {
+        const titleNorm = removeVietnameseAccents((item.title || '').toLowerCase());
+        const brandNorm = removeVietnameseAccents((item.brand || '').toLowerCase());
+        const descNorm = removeVietnameseAccents((item.description || '').toLowerCase());
+        
+        const titleMatch = titleNorm.includes(normalizedQuery);
+        const brandMatch = brandNorm.includes(normalizedQuery);
+        const descMatch = descNorm.includes(normalizedQuery);
+        
+        if (titleMatch || brandMatch || descMatch) {
+          console.log(`Match found: ${item.title}`);
+        }
+        
+        return titleMatch || brandMatch || descMatch;
+      });
+      
+      console.log(`After filtering: ${equipment.length} items matched`);
+      
+      // Apply pagination after filtering
+      equipment = equipment.slice(skip, skip + limit);
+    }
 
     console.log(`Found ${equipment.length} equipment items out of ${total} total`);
 

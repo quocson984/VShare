@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectMongoDB } from '@/lib/mongodb';
 import { EquipmentModel } from '@/models/equipment';
+import { updateBookingStatuses } from '@/lib/updateBookingStatuses';
+import { expireOldPayments } from '@/lib/expireOldPayments';
 
 export async function POST(request: NextRequest) {
   try {
@@ -28,9 +30,15 @@ export async function POST(request: NextRequest) {
 
     console.log('Database indexes created successfully');
 
+    // Update booking statuses on app initialization
+    await updateBookingStatuses();
+
+    // Expire old payments (older than 5 minutes)
+    await expireOldPayments();
+
     return NextResponse.json({
       success: true,
-      message: 'Database indexes created successfully'
+      message: 'Database initialized successfully'
     });
 
   } catch (error) {

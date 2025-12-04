@@ -1,5 +1,6 @@
 import mongoose, { Document, Schema, InferSchemaType } from 'mongoose';
 import { LocationSchema } from './location';
+import { removeVietnameseAccents } from '@/lib/stringUtils';
 
 const EquipmentSchema = new Schema({
     title: { 
@@ -71,10 +72,28 @@ const EquipmentSchema = new Schema({
         type: mongoose.Schema.Types.ObjectId, 
         ref: 'Account',
         required: [true, 'Owner ID is required']
-    }
+    },
+    // Normalized fields for accent-insensitive search
+    titleNormalized: { type: String, select: false },
+    brandNormalized: { type: String, select: false },
+    descriptionNormalized: { type: String, select: false }
 }, {
     timestamps: true
 })
+
+// Pre-save hook to normalize searchable fields
+EquipmentSchema.pre('save', function(next) {
+    if (this.title) {
+        this.titleNormalized = removeVietnameseAccents(this.title.toLowerCase());
+    }
+    if (this.brand) {
+        this.brandNormalized = removeVietnameseAccents(this.brand.toLowerCase());
+    }
+    if (this.description) {
+        this.descriptionNormalized = removeVietnameseAccents(this.description.toLowerCase());
+    }
+    next();
+});
 
 export type EquipmentType = InferSchemaType<typeof EquipmentSchema> & Document;
 

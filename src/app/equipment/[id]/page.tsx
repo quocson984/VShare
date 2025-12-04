@@ -134,6 +134,7 @@ export default function EquipmentDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedImage, setSelectedImage] = useState(0);
+  const [showAllPhotos, setShowAllPhotos] = useState(false);
   const [liked, setLiked] = useState(false);
   const [isOwner, setIsOwner] = useState(false);
   
@@ -604,21 +605,108 @@ export default function EquipmentDetailPage() {
           </div>
         </div>
 
-        {/* Images Gallery */}
+        {/* Images Gallery - Airbnb Style */}
         {equipment.images && equipment.images.length > 0 ? (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-8">
-            <div className="lg:col-span-1">
-              <img
-                src={equipment.images[selectedImage] || equipment.images[0]}
-                alt={equipment.title}
-                className="w-full h-80 lg:h-96 object-cover rounded-lg"
-              />
+          <div className="mb-8 relative z-0 overflow-hidden">
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-2 aspect-[16/9] lg:aspect-[2/1]">
+              {/* Large Image - Left Side */}
+              <div className="lg:col-span-2 lg:row-span-2 overflow-hidden">
+                <img
+                  src={equipment.images[0]}
+                  alt={equipment.title}
+                  className="w-full h-full object-cover rounded-xl lg:rounded-l-xl hover:brightness-95 transition-all cursor-pointer"
+                  onClick={() => setShowAllPhotos(true)}
+                />
+              </div>
+              
+              {/* Small Images - Right Side (2x2 Grid) */}
+              <div className="hidden lg:grid lg:col-span-2 grid-cols-2 grid-rows-2 gap-2">
+                {equipment.images.slice(1, 5).map((image, index) => (
+                  <div key={index} className="relative overflow-hidden">
+                    <img
+                      src={image}
+                      alt={`${equipment.title} - ${index + 2}`}
+                      className={`w-full h-full object-cover hover:brightness-95 transition-all cursor-pointer ${
+                        index === 1 ? 'rounded-tr-xl' : index === 3 ? 'rounded-br-xl' : ''
+                      }`}
+                      onClick={() => setShowAllPhotos(true)}
+                    />
+                    {/* Show all photos button on last image */}
+                    {index === 3 && equipment.images.length > 5 && (
+                      <button
+                        onClick={() => setShowAllPhotos(true)}
+                        className="absolute bottom-4 right-4 bg-white px-4 py-2 rounded-lg border border-gray-900 font-semibold text-sm hover:bg-gray-50 transition-colors flex items-center gap-2"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        Hiển thị tất cả ảnh
+                      </button>
+                    )}
+                  </div>
+                ))}
+                
+                {/* Fill empty slots if less than 4 additional images */}
+                {equipment.images.length < 5 && Array.from({ length: 5 - equipment.images.length }).map((_, index) => (
+                  <div key={`empty-${index}`} className={`bg-gray-200 h-full ${
+                    equipment.images.length + index === 2 ? 'rounded-tr-xl' : 
+                    equipment.images.length + index === 4 ? 'rounded-br-xl' : ''
+                  }`} />
+                ))}
+              </div>
             </div>
+            
+            {/* Show All Photos Button for Mobile */}
+            <button
+              onClick={() => setShowAllPhotos(true)}
+              className="lg:hidden absolute bottom-4 right-4 bg-white px-4 py-2 rounded-lg border border-gray-900 font-semibold text-sm hover:bg-gray-50 transition-colors flex items-center gap-2"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              Hiển thị tất cả ảnh
+            </button>
           </div>
         ) : (
-          <div className="bg-gray-200 rounded-lg h-96 flex items-center justify-center mb-8">
+          <div className="bg-gray-200 rounded-xl h-96 flex items-center justify-center mb-8">
             <div className="text-center text-gray-500">
               <p>Chưa có hình ảnh</p>
+            </div>
+          </div>
+        )}
+
+        {/* Full Screen Photo Gallery Modal */}
+        {showAllPhotos && (
+          <div className="fixed inset-0 bg-black z-50 overflow-y-auto">
+            <div className="min-h-screen px-4 py-8">
+              {/* Header */}
+              <div className="max-w-7xl mx-auto mb-8 flex items-center justify-between">
+                <button
+                  onClick={() => setShowAllPhotos(false)}
+                  className="text-white hover:text-gray-300 flex items-center gap-2"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                  Đóng
+                </button>
+                <p className="text-white text-sm">
+                  {equipment.images?.length} ảnh
+                </p>
+              </div>
+              
+              {/* Photos Grid */}
+              <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-4">
+                {equipment.images?.map((image, index) => (
+                  <div key={index} className="relative">
+                    <img
+                      src={image}
+                      alt={`${equipment.title} - ${index + 1}`}
+                      className="w-full h-auto rounded-lg"
+                    />
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         )}
@@ -709,7 +797,7 @@ export default function EquipmentDetailPage() {
 
           {/* Right Column - Booking Card */}
           <div className="lg:col-span-1">
-            <div className="sticky top-24 border border-gray-200 rounded-lg p-6 bg-white shadow-lg">
+            <div className="sticky top-4 border border-gray-200 rounded-lg p-6 bg-white shadow-lg z-30">
               <div className="mb-4">
                 <div className="flex items-baseline">
                   <span className="text-2xl font-bold text-gray-900">

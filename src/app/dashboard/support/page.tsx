@@ -202,13 +202,16 @@ export default function SupportPage() {
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString('vi-VN', {
+    const dateStr = date.toLocaleDateString('vi-VN', {
       day: '2-digit',
       month: '2-digit',
-      year: 'numeric',
+      year: 'numeric'
+    });
+    const timeStr = date.toLocaleTimeString('vi-VN', {
       hour: '2-digit',
       minute: '2-digit'
     });
+    return `${dateStr} ${timeStr}`;
   };
 
   if (isLoading) {
@@ -240,8 +243,8 @@ export default function SupportPage() {
           </button>
         </div>
 
-        {/* Incidents List */}
-        <div className="bg-white rounded-lg shadow-sm">
+        {/* Incidents Table */}
+        <div className="bg-white rounded-lg shadow-sm overflow-hidden">
           <div className="p-6 border-b border-gray-200">
             <h2 className="text-lg font-semibold text-gray-900">Lịch sử yêu cầu</h2>
           </div>
@@ -252,39 +255,57 @@ export default function SupportPage() {
               <p className="text-gray-600">Chưa có yêu cầu hỗ trợ nào</p>
             </div>
           ) : (
-            <div className="divide-y divide-gray-200">
-              {incidents.map((incident) => (
-                <div
-                  key={incident.id}
-                  className="p-6 hover:bg-gray-50 cursor-pointer transition-colors"
-                  onClick={() => setSelectedIncident(incident)}
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center space-x-3 mb-2">
-                        {getStatusIcon(incident.status)}
-                        <h3 className="font-medium text-gray-900">{getTypeLabel(incident.type)}</h3>
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Loại
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Mô tả
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Trạng thái
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Phản hồi
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Thời gian
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {incidents.map((incident) => (
+                    <tr
+                      key={incident.id}
+                      className="hover:bg-gray-50 cursor-pointer transition-colors"
+                      onClick={() => setSelectedIncident(incident)}
+                    >
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className="text-sm font-medium text-gray-900">
+                          {getTypeLabel(incident.type)}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <p className="text-sm text-gray-600 line-clamp-2">{incident.description}</p>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
                         {getStatusBadge(incident.status)}
-                        {incident.severity && (
-                          <span className={`px-2 py-1 text-xs rounded-full ${
-                            incident.severity === 'critical' ? 'bg-red-100 text-red-800' :
-                            incident.severity === 'major' ? 'bg-orange-100 text-orange-800' :
-                            'bg-blue-100 text-blue-800'
-                          }`}>
-                            {incident.severity === 'critical' ? 'Nghiêm trọng' :
-                             incident.severity === 'major' ? 'Quan trọng' : 'Nhỏ'}
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-sm text-gray-600 mb-2">{incident.description}</p>
-                      {incident.equipmentTitle && (
-                        <p className="text-sm text-gray-500">Thiết bị: {incident.equipmentTitle}</p>
-                      )}
-                      <p className="text-xs text-gray-400 mt-2">{formatDate(incident.createdAt)}</p>
-                    </div>
-                  </div>
-                </div>
-              ))}
+                      </td>
+                      <td className="px-6 py-4">
+                        <p className="text-sm text-gray-600 line-clamp-2">
+                          {incident.notes || '-'}
+                        </p>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {formatDate(incident.createdAt)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
         </div>

@@ -240,10 +240,10 @@ export async function POST(request: NextRequest) {
     let assignedSerials: string[] = [];
 
     if (equipment.serialNumbers && equipment.serialNumbers.length > 0) {
-      // Get all overlapping bookings for this equipment
+      // Get all overlapping bookings for this equipment (exclude failed bookings)
       const overlappingBookings = await BookingModel.find({
         equipmentId,
-        status: { $in: ['pending', 'ongoing'] },
+        status: { $in: ['pending', 'confirmed', 'ongoing'] },
         $or: [
           { startDate: { $lte: end }, endDate: { $gte: start } }
         ]

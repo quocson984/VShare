@@ -78,6 +78,11 @@ export default function BookingsPage() {
   };
 
   const filteredBookings = bookings.filter(booking => {
+    // Exclude pending status
+    if (booking.status === 'pending') {
+      return false;
+    }
+    
     const matchesStatus = filterStatus === 'all' || booking.status === filterStatus;
     
     // Filter by date range
@@ -102,8 +107,9 @@ export default function BookingsPage() {
   const getStatusBadge = (status: string) => {
     const configs = {
       pending: { bg: 'bg-yellow-100', text: 'text-yellow-700', label: 'Chờ xác nhận', icon: Clock },
+      confirmed: { bg: 'bg-blue-100', text: 'text-blue-700', label: 'Đã xác nhận', icon: CheckCircle },
       ongoing: { bg: 'bg-green-100', text: 'text-green-700', label: 'Đang thuê', icon: CheckCircle },
-      reviewing: { bg: 'bg-blue-100', text: 'text-blue-700', label: 'Đang xem xét', icon: AlertCircle },
+      reviewing: { bg: 'bg-purple-100', text: 'text-purple-700', label: 'Đang xem xét', icon: AlertCircle },
       completed: { bg: 'bg-gray-100', text: 'text-gray-700', label: 'Hoàn thành', icon: CheckCircle },
       canceled: { bg: 'bg-red-100', text: 'text-red-700', label: 'Đã hủy', icon: XCircle },
       failed: { bg: 'bg-red-100', text: 'text-red-700', label: 'Thất bại', icon: XCircle },
@@ -210,6 +216,7 @@ export default function BookingsPage() {
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
               <option value="all">Tất cả trạng thái</option>
+              <option value="confirmed">Đã xác nhận</option>
               <option value="ongoing">Đang thuê</option>
               <option value="completed">Hoàn thành</option>
               <option value="canceled">Đã hủy</option>

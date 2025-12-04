@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import InitApp from "@/components/InitApp";
 
 export const metadata: Metadata = {
   title: "VShare - Thuê thiết bị quay phim, chụp ảnh",
@@ -25,6 +26,7 @@ export default function RootLayout({
         <script src="https://cdn.jsdelivr.net/npm/@placekit/autocomplete-js@2.1.8" async></script>
       </head>
       <body className="min-h-screen bg-gray-50">
+        <InitApp />
         {children}
         
       </body>

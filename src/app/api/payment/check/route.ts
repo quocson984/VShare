@@ -85,12 +85,20 @@ export async function GET(request: NextRequest) {
         // Get updated payment
         const updatedPayment = await PaymentModel.findById(payment._id);
 
-        // Update booking status from 'pending' to 'ongoing'
+        // Get booking to check start date
+        const booking = await BookingModel.findById(bookingId);
+        const now = new Date();
+        const startDate = new Date(booking.startDate);
+        startDate.setHours(0, 0, 0, 0);
+        now.setHours(0, 0, 0, 0);
+
+        // Update booking status: 'confirmed' if before start date, 'ongoing' if on/after start date
+        const newStatus = now >= startDate ? 'ongoing' : 'confirmed';
         await BookingModel.findByIdAndUpdate(bookingId, {
-          status: 'ongoing'
+          status: newStatus
         });
 
-        console.log('Payment and booking updated successfully');
+        console.log(`Payment and booking updated successfully. Booking status: ${newStatus}`);
 
         return NextResponse.json({
           success: true,

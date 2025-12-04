@@ -87,6 +87,7 @@ export default function DashboardRentalsPage() {
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
               >
                 <option value="all">Tất cả trạng thái</option>
+                <option value="confirmed">Đã xác nhận</option>
                 <option value="ongoing">Đang thuê</option>
                 <option value="completed">Hoàn thành</option>
                 <option value="canceled">Đã hủy</option>

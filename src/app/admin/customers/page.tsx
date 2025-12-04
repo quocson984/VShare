@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { searchVietnamese } from '@/lib/stringUtils';
 import { 
   Search, 
   Check, 
@@ -182,9 +183,9 @@ export default function CustomersPage() {
       }
       
       const matchesSearch = 
-        customer.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        customer.fullname?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        customer.phone?.includes(searchTerm);
+        searchVietnamese(customer.email, searchTerm) ||
+        searchVietnamese(customer.fullname || '', searchTerm) ||
+        searchVietnamese(customer.phone || '', searchTerm);
       
       const matchesStatus = filterStatus === 'all' || customer.status === filterStatus;
       const matchesRole = filterRole === 'all' || customer.role === filterRole;

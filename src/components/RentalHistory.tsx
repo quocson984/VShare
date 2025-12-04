@@ -14,7 +14,7 @@ interface Booking {
   totalPrice: number;
   quantity?: number;
   serialNumbers?: string[];
-  status: 'pending' | 'ongoing' | 'completed' | 'canceled' | 'failed' | 'reviewing';
+  status: 'pending' | 'confirmed' | 'ongoing' | 'completed' | 'canceled' | 'failed' | 'reviewing';
   createdAt: string;
   ownerName?: string;
   renterName?: string;
@@ -137,11 +137,12 @@ export default function RentalHistory({
   const getStatusBadge = (status: string) => {
     const badges: Record<string, { label: string; color: string }> = {
       pending: { label: 'Đang chờ', color: 'bg-yellow-100 text-yellow-800' },
+      confirmed: { label: 'Đã xác nhận', color: 'bg-blue-100 text-blue-800' },
       ongoing: { label: 'Đang thuê', color: 'bg-green-100 text-green-800' },
       completed: { label: 'Hoàn thành', color: 'bg-gray-100 text-gray-800' },
       canceled: { label: 'Đã hủy', color: 'bg-red-100 text-red-800' },
       failed: { label: 'Thất bại', color: 'bg-red-100 text-red-800' },
-      reviewing: { label: 'Đang kiểm tra', color: 'bg-blue-100 text-blue-800' }
+      reviewing: { label: 'Đang kiểm tra', color: 'bg-purple-100 text-purple-800' }
     };
     
     const badge = badges[status] || badges.pending;
@@ -202,6 +203,30 @@ export default function RentalHistory({
     } finally {
       setLoadingProfile(false);
       console.log('✅ Profile modal should be visible now');
+    }
+  };
+
+  const handleCompleteBooking = async (bookingId: string) => {
+    if (!confirm('Xác nhận hoàn thành đơn thuê này?')) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/bookings/${bookingId}/complete`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' }
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        alert('Đã xác nhận hoàn thành đơn thuê');
+        fetchBookings(); // Refresh the list
+      } else {
+        alert('Lỗi: ' + data.message);
+      }
+    } catch (error) {
+      console.error('Error completing booking:', error);
+      alert('Có lỗi xảy ra khi xác nhận hoàn thành');
     }
   };
 
@@ -298,10 +323,21 @@ export default function RentalHistory({
                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       {activeTab === 'rented' ? 'Chủ thiết bị' : 'Người thuê'}
                     </th>
+                    {activeTab === 'renting' && (
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Thao tác
+                      </th>
+                    )}
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {filteredBookings.map((booking) => (
+                  {filteredBookings.map((booking) => {
+                    const now = new Date();
+                    const endDate = new Date(booking.endDate);
+                    const isAfterEndDate = now > endDate;
+                    const canComplete = booking.status === 'ongoing' && isAfterEndDate;
+                    
+                    return (
                     <tr key={booking.id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm font-medium text-gray-900">{booking.equipmentTitle}</div>
@@ -351,8 +387,23 @@ export default function RentalHistory({
                           {activeTab === 'rented' ? (booking.ownerName || 'Unknown') : (booking.renterName || 'Unknown')}
                         </button>
                       </td>
+                      {activeTab === 'renting' && (
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          {canComplete ? (
+                            <button
+                              onClick={() => handleCompleteBooking(booking.id)}
+                              className="px-3 py-1 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 font-medium"
+                            >
+                              Xác nhận hoàn thành
+                            </button>
+                          ) : (
+                            <span className="text-sm text-gray-400">-</span>
+                          )}
+                        </td>
+                      )}
                     </tr>
-                  ))}
+                  );
+                  })}
                 </tbody>
               </table>
             )}
