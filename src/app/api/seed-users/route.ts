@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectMongoDB } from '@/lib/mongodb';
-import { UserModel } from '@/models/user';
+import { AccountModel } from '@/models/account';
 
 const demoUsers = [
   {
@@ -50,12 +50,12 @@ export async function POST() {
     await connectMongoDB();
     
     // Clear existing demo users first
-    await UserModel.deleteMany({ 
+    await AccountModel.deleteMany({ 
       email: { $in: demoUsers.map(u => u.email) } 
     });
 
     // Insert demo users
-    const result = await UserModel.insertMany(demoUsers);
+    await AccountModel.insertMany(demoUsers);
     
     return NextResponse.json({
       success: true,
@@ -82,7 +82,7 @@ export async function GET() {
   try {
     await connectMongoDB();
     
-    const users = await UserModel.find({}, 'email name role isVerified createdAt').lean();
+    const users = await AccountModel.find({}, 'email name role isVerified createdAt').lean();
     
     return NextResponse.json({
       success: true,

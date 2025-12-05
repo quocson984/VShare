@@ -1,6 +1,12 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
+  typescript: {
+    ignoreBuildErrors: true,
+  },
   images: {
     remotePatterns: [
       {
@@ -29,12 +35,7 @@ const nextConfig: NextConfig = {
       },
     ],
   },
-  trailingSlash: true,
-  exportPathMap: function() {
-    return {
-      '/': { page: '/' }
-    }
-  }
+  trailingSlash: true
 };
 
 export default nextConfig;

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import connectDB from '@/lib/mongodb';
+import { connectDB } from '@/lib/mongodb';
 import { PaymentModel } from '@/models/payment';
 import { BookingModel } from '@/models/booking';
 

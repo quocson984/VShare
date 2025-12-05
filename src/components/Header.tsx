@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Menu, X, Heart, User, Search, MapPin } from 'lucide-react';
@@ -12,7 +12,7 @@ interface HeaderProps {
   hideSearch?: boolean;
 }
 
-export default function Header({ hideSearch = false }: HeaderProps) {
+function HeaderContent({ hideSearch = false }: HeaderProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [location, setLocation] = useState('');
@@ -280,5 +280,13 @@ export default function Header({ hideSearch = false }: HeaderProps) {
         )}
       </div>
     </header>
+  );
+}
+
+export default function Header(props: HeaderProps) {
+  return (
+    <Suspense fallback={<div className="h-16 bg-white border-b" />}>
+      <HeaderContent {...props} />
+    </Suspense>
   );
 }
